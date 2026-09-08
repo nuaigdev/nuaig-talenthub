@@ -136,8 +136,24 @@ export function wrapGraphError(
   if (error instanceof AppError) return error
   const status = graphStatus(error)
   const code = (error as GraphErrorish)?.code
-  return new AppError(category, `${operation} failed: ${status ?? '?'} ${code ?? 'unknown'}`, {
-    context: { correlationId: graphCorrelationId(error), graphStatus: status, graphCode: code },
-    cause: error,
-  })
+  // Graph puts the actionable part in the message — "A provided field name is
+  // not recognized" and friends. Without it the log says only "400
+  // invalidRequest", which is true and useless.
+  const message = (error as Error)?.message ?? ''
+
+  return new AppError(
+    category,
+    `${operation} failed: ${status ?? '?'} ${code ?? 'unknown'}${message ? ` — ${message}` : ''}`,
+    {
+      context: {
+        correlationId: graphCorrelationId(error),
+        graphStatus: status,
+        graphCode: code,
+        // A 4xx from Graph is a configuration fault, not a blip: retrying it
+        // will never help, and it should be read as "fix the setup".
+        transient: typeof status === 'number' ? status >= 500 || status === 429 : true,
+      },
+      cause: error,
+    },
+  )
 }
