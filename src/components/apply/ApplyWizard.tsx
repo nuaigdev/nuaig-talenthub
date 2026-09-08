@@ -1,28 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Field, Input, Select, Spinner } from '@/components/ui'
-import { StepIndicator } from './StepIndicator'
+import { SectionNav } from './SectionNav'
 import { FileUploadField, type UploadState } from './FileUploadField'
 import {
-  APPLY_STEPS,
+  APPLY_SECTIONS,
   CONSENT_TEXT,
   NOTICE_PERIODS,
   POSITIONS,
   VIDEO_INSTRUCTIONS,
+  type ApplySectionId,
 } from '@/lib/constants'
 import { fieldErrors, personalInfoSchema, positionSchema } from '@/lib/validation'
 
 /**
- * The five-step candidate application (spec.md §9).
+ * The candidate application (spec.md §9), as one scrolling page.
  *
- * Step state lives here rather than in the URL: the uploads are tied to an
- * in-memory draft token, so a reload cannot resume them anyway, and a candidate
- * who navigates back keeps everything they have already entered.
+ * This was a five-step wizard. It is now a single form with a section rail that
+ * tracks scroll position — a deliberate departure from §6.1's horizontal step
+ * indicator, made because the form is short enough that gating it behind four
+ * "Continue" clicks cost more than it helped.
  *
- * Uploaded files are held as drive item ids. Moving between steps never
- * re-uploads, and a failed submit leaves successful uploads intact so the retry
- * path costs nothing (§9, partial-failure handling).
+ * What the change does *not* alter: validation still runs per section, uploads
+ * still go straight to Microsoft and are held as drive item ids, and a failed
+ * submit still leaves successful uploads intact so a retry costs nothing
+ * (§9, partial-failure handling).
  */
 
 export type UploadLimits = {
@@ -43,8 +46,6 @@ type PersonalState = {
 type PositionState = {
   position: string
   yearsExperience: string
-  currentCompany: string
-  currentJobTitle: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: string
@@ -61,15 +62,15 @@ const EMPTY_PERSONAL: PersonalState = {
 const EMPTY_POSITION: PositionState = {
   position: '',
   yearsExperience: '',
-  currentCompany: '',
-  currentJobTitle: '',
   currentCTC: '',
   expectedCTC: '',
   noticePeriod: '',
 }
 
+/** Where the top of a section must sit before the rail counts it as current. */
+const ACTIVE_LINE_PX = 160
+
 export function ApplyWizard({ limits }: { limits: UploadLimits }) {
-  const [step, setStep] = useState(0)
   const [personal, setPersonal] = useState(EMPTY_PERSONAL)
   const [position, setPosition] = useState(EMPTY_POSITION)
   const [resume, setResume] = useState<UploadState>({ phase: 'empty' })
@@ -80,39 +81,90 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [result, setResult] = useState<{ candidateId: string; emailSent: boolean } | null>(null)
+  const [active, setActive] = useState<ApplySectionId>('personal')
 
-  if (result) {
-    return <SuccessScreen candidateId={result.candidateId} emailSent={result.emailSent} />
+  const parsedPersonal = personalInfoSchema.safeParse(personal)
+  const parsedPosition = positionSchema.safeParse({
+    ...position,
+    yearsExperience: position.yearsExperience === '' ? Number.NaN : Number(position.yearsExperience),
+  })
+
+  const complete: Record<ApplySectionId, boolean> = {
+    personal: parsedPersonal.success,
+    position: parsedPosition.success,
+    resume: resume.phase === 'done',
+    video: video.phase === 'done',
+    consent,
   }
 
-  function goTo(next: number) {
-    setErrors({})
-    setSubmitError(null)
-    setStep(next)
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  // --- scroll spy ---------------------------------------------------------
+  // A plain scroll listener rather than IntersectionObserver: the rule is
+  // "the last section whose top has crossed the line", which is trivial to
+  // express directly and awkward to express as a set of intersection ratios.
+  useEffect(() => {
+    let frame = 0
 
-  function validateAndAdvance() {
-    if (step === 0) {
-      const parsed = personalInfoSchema.safeParse(personal)
-      if (!parsed.success) return setErrors(fieldErrors(parsed.error))
-      return goTo(1)
+    const measure = () => {
+      frame = 0
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+
+      if (atBottom) {
+        setActive(APPLY_SECTIONS[APPLY_SECTIONS.length - 1].id)
+        return
+      }
+
+      let current: ApplySectionId = APPLY_SECTIONS[0].id
+      for (const section of APPLY_SECTIONS) {
+        const element = document.getElementById(section.id)
+        if (element && element.getBoundingClientRect().top <= ACTIVE_LINE_PX) {
+          current = section.id
+        }
+      }
+      setActive(current)
     }
 
-    if (step === 1) {
-      const parsed = positionSchema.safeParse({
-        ...position,
-        yearsExperience:
-          position.yearsExperience === '' ? Number.NaN : Number(position.yearsExperience),
-      })
-      if (!parsed.success) return setErrors(fieldErrors(parsed.error))
-      return goTo(2)
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure)
     }
 
-    return goTo(step + 1)
-  }
+    measure()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [result])
+
+  const jumpTo = useCallback((id: ApplySectionId) => {
+    const element = document.getElementById(id)
+    if (!element) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    element.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+  }, [])
 
   async function submit() {
+    // Validate everything at once and send the candidate to the first problem,
+    // rather than letting them press Submit repeatedly to discover them.
+    const collected: Record<string, string> = {}
+    if (!parsedPersonal.success) Object.assign(collected, fieldErrors(parsedPersonal.error))
+    if (!parsedPosition.success) Object.assign(collected, fieldErrors(parsedPosition.error))
+
+    setErrors(collected)
+
+    const firstIncomplete = APPLY_SECTIONS.find((section) => !complete[section.id])
+    if (firstIncomplete) {
+      setSubmitError(
+        firstIncomplete.id === 'consent'
+          ? 'Please confirm your consent before submitting.'
+          : `Please complete the ${firstIncomplete.label.toLowerCase()} section.`,
+      )
+      jumpTo(firstIncomplete.id)
+      return
+    }
+
     if (resume.phase !== 'done' || video.phase !== 'done' || !draftToken) {
       setSubmitError('Please complete both uploads before submitting.')
       return
@@ -154,26 +206,35 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
     }
   }
 
-  const canAdvance =
-    step === 2 ? resume.phase === 'done' : step === 3 ? video.phase === 'done' : true
+  if (result) {
+    return <SuccessScreen candidateId={result.candidateId} emailSent={result.emailSent} />
+  }
 
   return (
-    <>
-      <StepIndicator current={step} />
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+      <header className="mb-8 max-w-2xl">
+        <h1 className="text-3xl font-semibold text-ink">Apply to NuAIg</h1>
+        <p className="mt-2 text-secondary">
+          One page, five short sections. Your uploads start as soon as you choose a file, so
+          nothing is waiting on you at the end.
+        </p>
+      </header>
 
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold text-ink">{APPLY_STEPS[step]}</h1>
-          <p className="mt-1 text-sm text-secondary">{STEP_BLURBS[step]}</p>
-        </header>
+      <div className="gap-10 lg:grid lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+        <div className="sticky top-16 z-30 -mx-4 mb-6 border-b border-border bg-bg px-4 py-3 sm:-mx-6 sm:px-6 lg:static lg:z-auto lg:m-0 lg:border-0 lg:bg-transparent lg:p-0">
+          <SectionNav active={active} complete={complete} onJump={jumpTo} />
+        </div>
 
-        <Card className="p-5 sm:p-7">
-          {step === 0 && (
+        <div className="min-w-0 space-y-8">
+          <FormSection id="personal">
             <PersonalStep value={personal} onChange={setPersonal} errors={errors} />
-          )}
-          {step === 1 && <PositionStep value={position} onChange={setPosition} errors={errors} />}
+          </FormSection>
 
-          {step === 2 && (
+          <FormSection id="position">
+            <PositionStep value={position} onChange={setPosition} errors={errors} />
+          </FormSection>
+
+          <FormSection id="resume">
             <FileUploadField
               kind="resume"
               label="Resume"
@@ -186,9 +247,9 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
               draftToken={draftToken}
               onDraftToken={setDraftToken}
             />
-          )}
+          </FormSection>
 
-          {step === 3 && (
+          <FormSection id="video">
             <div className="space-y-5">
               <Alert tone="info" title="What to record">
                 {VIDEO_INSTRUCTIONS}
@@ -206,13 +267,13 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
                 onDraftToken={setDraftToken}
               />
               <p className="text-xs text-secondary">
-                Large files upload directly and securely. Keep this tab open until the
-                progress bar reaches 100%.
+                Large files upload directly and securely. Keep this tab open until the progress
+                bar reaches 100%.
               </p>
             </div>
-          )}
+          </FormSection>
 
-          {step === 4 && (
+          <FormSection id="consent">
             <ConsentStep
               checked={consent}
               onChange={setConsent}
@@ -221,48 +282,44 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
               resumeName={resume.phase === 'done' ? resume.originalName : ''}
               videoName={video.phase === 'done' ? video.originalName : ''}
             />
-          )}
+          </FormSection>
 
-          {submitError && (
-            <div className="mt-5">
-              <Alert tone="error">{submitError}</Alert>
-            </div>
-          )}
-        </Card>
+          {submitError && <Alert tone="error">{submitError}</Alert>}
 
-        <div className="mt-6 flex items-center justify-between gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => goTo(step - 1)}
-            disabled={step === 0 || submitting}
-          >
-            Back
-          </Button>
-
-          {step < APPLY_STEPS.length - 1 ? (
-            <Button type="button" onClick={validateAndAdvance} disabled={!canAdvance}>
-              Continue
-            </Button>
-          ) : (
-            <Button type="button" onClick={() => void submit()} disabled={!consent || submitting}>
+          <div className="flex flex-wrap items-center justify-end gap-4 border-t border-border pt-6">
+            <p className="mr-auto text-xs text-muted">
+              You can review everything above before submitting.
+            </p>
+            <Button type="button" onClick={() => void submit()} disabled={submitting}>
               {submitting && <Spinner />}
               {submitting ? 'Submitting…' : 'Submit application'}
             </Button>
-          )}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
-const STEP_BLURBS = [
-  'Tell us how to reach you.',
-  'Which role are you applying for?',
-  'Upload your most recent resume.',
-  'Record a short introduction so we can get to know you.',
-  'Review and confirm your submission.',
-]
+/**
+ * One section of the form. `scroll-mt` clears the sticky header and the mobile
+ * section rail, so a jump lands with the heading visible rather than tucked
+ * underneath them.
+ */
+function FormSection({ id, children }: { id: ApplySectionId; children: React.ReactNode }) {
+  const section = APPLY_SECTIONS.find((entry) => entry.id === id)!
+  const ref = useRef<HTMLElement>(null)
+
+  return (
+    <section ref={ref} id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-40 lg:scroll-mt-24">
+      <h2 id={`${id}-heading`} className="text-lg font-semibold text-ink">
+        {section.label}
+      </h2>
+      <p className="mb-4 mt-0.5 text-sm text-secondary">{section.blurb}</p>
+      <Card className="p-5 sm:p-6">{children}</Card>
+    </section>
+  )
+}
 
 // ---------------------------------------------------------------------------
 
@@ -328,12 +385,7 @@ function PersonalStep({
         />
       </Field>
 
-      <Field
-        id="linkedIn"
-        label="LinkedIn profile"
-        hint="Optional"
-        error={errors.linkedIn}
-      >
+      <Field id="linkedIn" label="LinkedIn profile" hint="Optional" error={errors.linkedIn}>
         <Input
           id="linkedIn"
           type="url"
@@ -381,7 +433,12 @@ function PositionStep({
         </Select>
       </Field>
 
-      <Field id="yearsExperience" label="Years of experience" required error={errors.yearsExperience}>
+      <Field
+        id="yearsExperience"
+        label="Years of experience"
+        required
+        error={errors.yearsExperience}
+      >
         <Input
           id="yearsExperience"
           type="number"
@@ -393,18 +450,6 @@ function PositionStep({
           onChange={set('yearsExperience')}
           invalid={!!errors.yearsExperience}
           aria-describedby={errors.yearsExperience ? 'yearsExperience-error' : undefined}
-        />
-      </Field>
-
-      <Field id="currentCompany" label="Current company" hint="Optional">
-        <Input id="currentCompany" value={value.currentCompany} onChange={set('currentCompany')} />
-      </Field>
-
-      <Field id="currentJobTitle" label="Current job title" hint="Optional">
-        <Input
-          id="currentJobTitle"
-          value={value.currentJobTitle}
-          onChange={set('currentJobTitle')}
         />
       </Field>
 
@@ -499,8 +544,8 @@ function SuccessScreen({ candidateId, emailSent }: { candidateId: string; emailS
 
       <h1 className="mt-5 text-2xl font-semibold text-ink">Application received</h1>
       <p className="mt-2 text-secondary">
-        Thank you for applying. Our team will review your application and be in touch if there
-        is a match.
+        Thank you for applying. Our team will review your application and be in touch if there is
+        a match.
       </p>
 
       <div className="mt-7 rounded-lg border border-border bg-brand-subtle px-6 py-5">

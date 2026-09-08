@@ -19,8 +19,6 @@ export type CandidateView = {
   linkedIn: string
   position: string
   yearsExperience: number
-  currentCompany: string
-  currentJobTitle: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: string
@@ -50,8 +48,6 @@ export function toView(candidate: Candidate): CandidateView {
     linkedIn: candidate.linkedIn,
     position: candidate.position,
     yearsExperience: candidate.yearsExperience,
-    currentCompany: candidate.currentCompany,
-    currentJobTitle: candidate.currentJobTitle,
     currentCTC: candidate.currentCTC,
     expectedCTC: candidate.expectedCTC,
     noticePeriod: candidate.noticePeriod,

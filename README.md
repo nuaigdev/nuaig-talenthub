@@ -176,9 +176,16 @@ Light mode only — no dark variants anywhere. Tokens are defined once in
 `#069BDF`, ink `#111111`. Nine status colours render as pills tinted to ~12%
 with full-opacity text and dot.
 
-Navigation is header-only, in both experiences — there is no sidebar anywhere in
-the product. The public flow uses a horizontal step indicator; the dashboard
-puts filters in a bar directly under the header.
+Navigation is header-only on the recruiter side, with filters in a bar directly
+under the header rather than a side panel.
+
+The public application is a single page with a left section rail that follows
+scroll position. `spec.md` §6.1 specifies a five-step wizard with a horizontal
+step indicator instead; that was changed deliberately, because the form is short
+enough that gating it behind four "Continue" clicks cost more than it helped.
+The rail is an overview, never a gate — every section is on the page from the
+start, and its completion ticks reflect real validation state so a candidate can
+see what is outstanding before pressing Submit.
 
 The logo assets in `public/brand/` are the supplied NuAIg marks and are never
 recoloured, stretched or filtered. `logo-white.svg` is shipped for a future

@@ -70,7 +70,8 @@ Partial-failure paths matter and are already implemented in `src/app/api/apply/s
 ## UI conventions
 
 - **Light mode only.** No dark variants, no `dark:` classes.
-- **No sidebar anywhere.** Header-only navigation; step indicator on the public flow, filter bar under the header on the dashboard.
+- **No sidebar on the recruiter side.** Header-only navigation there; the filter bar sits under the header, never in a side panel.
+- **The apply form is one page with a left section rail** (`SectionNav`), not the five-step wizard with a horizontal step indicator that spec.md §6.1 describes. A knowing deviation, made because the form is short enough that four "Continue" clicks cost more than they helped. The rail is an overview driven by scroll position — it never gates progress, and every section is on the page from the start.
 - Tokens live in `src/app/globals.css`, mapped in `tailwind.config.ts`. Brand `#069BDF`, ink `#111111`. Use tokens, not raw hex, except the status palette in `src/lib/constants.ts`.
 - Status badges are ~12% tinted pills with full-opacity text and dot.
 - Transitions 150–200ms on hover/focus only. `shadow-sm`, `rounded-lg` cards. Not an admin-template look.

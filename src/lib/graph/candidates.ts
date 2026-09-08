@@ -43,8 +43,6 @@ export type Candidate = {
   linkedIn: string
   position: Position
   yearsExperience: number
-  currentCompany: string
-  currentJobTitle: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: NoticePeriod
@@ -70,8 +68,6 @@ type CandidateFields = Record<string, unknown> & {
   LinkedIn?: HyperlinkField
   Position?: string
   YearsExperience?: number
-  CurrentCompany?: string
-  CurrentJobTitle?: string
   CurrentCTC?: string
   ExpectedCTC?: string
   NoticePeriod?: string
@@ -100,8 +96,6 @@ const SELECTED_FIELDS = [
   'LinkedIn',
   'Position',
   'YearsExperience',
-  'CurrentCompany',
-  'CurrentJobTitle',
   'CurrentCTC',
   'ExpectedCTC',
   'NoticePeriod',
@@ -161,8 +155,6 @@ export function toCandidate(item: ListItem): Candidate {
     linkedIn: hyperlink(fields.LinkedIn),
     position: (fields.Position ?? 'Other') as Position,
     yearsExperience: Number(fields.YearsExperience ?? 0),
-    currentCompany: fields.CurrentCompany ?? '',
-    currentJobTitle: fields.CurrentJobTitle ?? '',
     currentCTC: fields.CurrentCTC ?? '',
     expectedCTC: fields.ExpectedCTC ?? '',
     noticePeriod: (fields.NoticePeriod ?? 'Other') as NoticePeriod,
@@ -231,8 +223,6 @@ export type NewCandidate = {
   linkedIn: string
   position: Position
   yearsExperience: number
-  currentCompany: string
-  currentJobTitle: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: NoticePeriod
@@ -273,8 +263,6 @@ export async function createCandidate(input: NewCandidate): Promise<Candidate> {
         LinkedIn: input.linkedIn,
         Position: input.position,
         YearsExperience: input.yearsExperience,
-        CurrentCompany: input.currentCompany,
-        CurrentJobTitle: input.currentJobTitle,
         CurrentCTC: input.currentCTC,
         ExpectedCTC: input.expectedCTC,
         NoticePeriod: input.noticePeriod,

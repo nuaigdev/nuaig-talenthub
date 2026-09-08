@@ -90,8 +90,6 @@ export default async function CandidateDetailPage({ params }: { params: Params }
               </Detail>
               <Detail label="Experience">{candidate.yearsExperience} years</Detail>
               <Detail label="Notice period">{candidate.noticePeriod}</Detail>
-              <Detail label="Current company">{candidate.currentCompany || '—'}</Detail>
-              <Detail label="Current title">{candidate.currentJobTitle || '—'}</Detail>
               <Detail label="Current CTC">{candidate.currentCTC || '—'}</Detail>
               <Detail label="Expected CTC">{candidate.expectedCTC || '—'}</Detail>
             </dl>

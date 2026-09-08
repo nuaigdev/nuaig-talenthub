@@ -64,8 +64,8 @@ column created with a different name keeps the original internal name forever).
 | `LinkedIn` | Single line of text | Optional. **Not** Hyperlink — see the note below. |
 | `Position` | Choice | The 8 options in §4 below. **Index this column.** |
 | `YearsExperience` | Number | Allow decimals |
-| `CurrentCompany` | Single line of text | Optional |
-| `CurrentJobTitle` | Single line of text | Optional |
+| `CurrentCompany` | Single line of text | **Unused.** Removed from the form; the app no longer reads or writes it. Safe to leave or delete. |
+| `CurrentJobTitle` | Single line of text | **Unused.** As above. |
 | `CurrentCTC` | Single line of text | Free text — currency varies |
 | `ExpectedCTC` | Single line of text | Free text |
 | `NoticePeriod` | Choice | The 7 options in §4 below |

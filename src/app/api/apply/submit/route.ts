@@ -147,8 +147,6 @@ export async function POST(request: Request) {
       linkedIn: input.linkedIn,
       position: input.position,
       yearsExperience: input.yearsExperience,
-      currentCompany: input.currentCompany,
-      currentJobTitle: input.currentJobTitle,
       currentCTC: input.currentCTC,
       expectedCTC: input.expectedCTC,
       noticePeriod: input.noticePeriod,

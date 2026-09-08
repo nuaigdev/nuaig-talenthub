@@ -41,8 +41,6 @@ export const positionSchema = z.object({
     .number({ invalid_type_error: 'Please enter your years of experience' })
     .min(0, 'Years of experience cannot be negative')
     .max(60, 'Please enter a realistic number of years'),
-  currentCompany: trimmed(150).optional().default(''),
-  currentJobTitle: trimmed(150).optional().default(''),
   currentCTC: trimmed(60).optional().default(''),
   expectedCTC: trimmed(60).optional().default(''),
   noticePeriod: z.enum(NOTICE_PERIODS, {

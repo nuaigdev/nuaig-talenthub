@@ -67,13 +67,42 @@ export const SUMMARY_STATUSES: CandidateStatus[] = [
   'Rejected',
 ]
 
-export const APPLY_STEPS = [
-  'Personal Info',
-  'Position',
-  'Resume',
-  'Video',
-  'Consent',
+/**
+ * Sections of the single-page application form.
+ *
+ * These were five separate wizard steps; the form is now one page with a
+ * section rail that tracks scroll position, so `id` doubles as the anchor and
+ * the scroll-spy key.
+ */
+export const APPLY_SECTIONS = [
+  {
+    id: 'personal',
+    label: 'Personal information',
+    blurb: 'Tell us how to reach you.',
+  },
+  {
+    id: 'position',
+    label: 'Position',
+    blurb: 'Which role are you applying for?',
+  },
+  {
+    id: 'resume',
+    label: 'Resume',
+    blurb: 'Upload your most recent resume.',
+  },
+  {
+    id: 'video',
+    label: 'Introduction video',
+    blurb: 'Record a short introduction so we can get to know you.',
+  },
+  {
+    id: 'consent',
+    label: 'Review & consent',
+    blurb: 'Check your details and confirm your submission.',
+  },
 ] as const
+
+export type ApplySectionId = (typeof APPLY_SECTIONS)[number]['id']
 
 export const DASHBOARD_PAGE_SIZE = 25
 
