@@ -79,10 +79,14 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
 }
 
 function errorTitle(error: string): string {
+  if (error === 'DirectoryUnavailable') return 'Could not verify your access'
   return error === 'AccessDenied' ? 'Access denied' : 'Sign-in failed'
 }
 
 function errorBody(error: string): string {
+  if (error === 'DirectoryUnavailable') {
+    return 'You signed in successfully, but we could not reach the recruiter directory to confirm your access. This is a temporary system issue, not a problem with your account. Please try again shortly.'
+  }
   if (error === 'AccessDenied') {
     return 'Your Microsoft account signed in successfully, but it is not on the active recruiters list. Ask an administrator to add you.'
   }

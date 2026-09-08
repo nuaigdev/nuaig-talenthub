@@ -60,12 +60,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (profile?.preferred_username as string | undefined) ??
         ''
 
-      // A stale negative cache entry would lock out a just-added recruiter, so
-      // a failed lookup is retried once against fresh data.
-      let recruiter = await findActiveRecruiter(email)
-      if (!recruiter) {
-        invalidateRecruiterCache()
+      // Being unable to *read* the roster is not the same as being absent from
+      // it. Telling someone they aren't a recruiter when the directory is
+      // simply unreachable sends them to an admin to fix the wrong problem.
+      let recruiter: Awaited<ReturnType<typeof findActiveRecruiter>>
+      try {
+        // A stale negative cache entry would lock out a just-added recruiter,
+        // so a failed lookup is retried once against fresh data.
         recruiter = await findActiveRecruiter(email)
+        if (!recruiter) {
+          invalidateRecruiterCache()
+          recruiter = await findActiveRecruiter(email)
+        }
+      } catch (error) {
+        logger.error('Recruiter roster unreachable during sign-in', error, {
+          operation: 'recruiter_sign_in',
+          category: 'GRAPH_UNAVAILABLE',
+          email,
+        })
+        return '/recruiter/signin?error=DirectoryUnavailable'
       }
 
       if (!recruiter) {
