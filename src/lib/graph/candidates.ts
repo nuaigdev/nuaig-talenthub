@@ -1,0 +1,551 @@
+import 'server-only'
+import type { Client } from '@microsoft/microsoft-graph-client'
+import { appOnlyClient, isPreconditionFailed, wrapGraphError } from './client'
+import { policyEnv, sharePointEnv } from '../env'
+import { AppError } from '../errors'
+import { DASHBOARD_PAGE_SIZE, type CandidateStatus, type NoticePeriod, type Position } from '../constants'
+
+/**
+ * The `Candidates` SharePoint list is the system of record (spec.md §7.2).
+ * There is no parallel database, so every read and write below is a Graph call.
+ *
+ * Two invariants this module exists to protect:
+ *   - Notes and status changes are append-only JSON logs. Nothing is ever
+ *     overwritten, so two recruiters writing at once both land (§3 decision 9).
+ *   - Every write is ETag-guarded. A lost update fails loudly and retries
+ *     against fresh state rather than silently clobbering.
+ */
+
+export type NoteEntry = {
+  author: string
+  authorEmail: string
+  timestamp: string
+  text: string
+}
+
+export type StatusHistoryEntry = {
+  author: string
+  authorEmail: string
+  timestamp: string
+  fromStatus: CandidateStatus | null
+  toStatus: CandidateStatus
+}
+
+export type Candidate = {
+  /** SharePoint list item id — internal, never exposed to candidates. */
+  itemId: string
+  etag: string
+  candidateId: string
+  fullName: string
+  email: string
+  phone: string
+  location: string
+  linkedIn: string
+  position: Position
+  yearsExperience: number
+  currentCompany: string
+  currentJobTitle: string
+  currentCTC: string
+  expectedCTC: string
+  noticePeriod: NoticePeriod
+  resumeUrl: string
+  videoUrl: string
+  applicationDate: string
+  status: CandidateStatus
+  notes: NoteEntry[]
+  statusHistory: StatusHistoryEntry[]
+  /** Reserved for a future AI pass (spec.md §11); always null today. */
+  matchScore: number | null
+}
+
+type HyperlinkField = { Url?: string; Description?: string } | string | null | undefined
+
+type CandidateFields = Record<string, unknown> & {
+  id?: string
+  CandidateID?: string
+  FullName?: string
+  Email?: string
+  Phone?: string
+  Location?: string
+  LinkedIn?: HyperlinkField
+  Position?: string
+  YearsExperience?: number
+  CurrentCompany?: string
+  CurrentJobTitle?: string
+  CurrentCTC?: string
+  ExpectedCTC?: string
+  NoticePeriod?: string
+  ResumeURL?: HyperlinkField
+  VideoURL?: HyperlinkField
+  ApplicationDate?: string
+  Status?: string
+  RecruiterNotesJSON?: string
+  StatusHistoryJSON?: string
+  MatchScore?: number | null
+}
+
+type ListItem = {
+  id: string
+  '@odata.etag'?: string
+  fields: CandidateFields
+}
+
+const SELECTED_FIELDS = [
+  'id',
+  'CandidateID',
+  'FullName',
+  'Email',
+  'Phone',
+  'Location',
+  'LinkedIn',
+  'Position',
+  'YearsExperience',
+  'CurrentCompany',
+  'CurrentJobTitle',
+  'CurrentCTC',
+  'ExpectedCTC',
+  'NoticePeriod',
+  'ResumeURL',
+  'VideoURL',
+  'ApplicationDate',
+  'Status',
+  'RecruiterNotesJSON',
+  'StatusHistoryJSON',
+  'MatchScore',
+].join(',')
+
+/**
+ * SharePoint's Graph surface will not `$filter`/`$orderby` a non-indexed column
+ * without this. Index the columns listed in SHAREPOINT_SETUP.md and the header
+ * becomes belt-and-braces rather than load-bearing.
+ */
+const NON_INDEXED = 'HonorNonIndexedQueriesWarningMayFailRandomly'
+
+function itemsApi(suffix = ''): string {
+  return `/sites/${sharePointEnv.siteId}/lists/${sharePointEnv.candidatesListId}/items${suffix}`
+}
+
+/** Escapes a value for an OData string literal. */
+function odata(value: string): string {
+  return value.replace(/'/g, "''")
+}
+
+function hyperlink(field: HyperlinkField): string {
+  if (!field) return ''
+  return typeof field === 'string' ? field : (field.Url ?? '')
+}
+
+/** Parses an append-only JSON log, tolerating a column that is empty or corrupt. */
+function parseLog<T>(raw: string | undefined, sortKey: (entry: T) => string): T[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return (parsed as T[]).sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
+  } catch {
+    // A hand-edit in the SharePoint UI must not take down the detail page.
+    return []
+  }
+}
+
+export function toCandidate(item: ListItem): Candidate {
+  const fields = item.fields ?? {}
+  return {
+    itemId: item.id,
+    etag: item['@odata.etag'] ?? '',
+    candidateId: fields.CandidateID ?? '',
+    fullName: fields.FullName ?? '',
+    email: fields.Email ?? '',
+    phone: fields.Phone ?? '',
+    location: fields.Location ?? '',
+    linkedIn: hyperlink(fields.LinkedIn),
+    position: (fields.Position ?? 'Other') as Position,
+    yearsExperience: Number(fields.YearsExperience ?? 0),
+    currentCompany: fields.CurrentCompany ?? '',
+    currentJobTitle: fields.CurrentJobTitle ?? '',
+    currentCTC: fields.CurrentCTC ?? '',
+    expectedCTC: fields.ExpectedCTC ?? '',
+    noticePeriod: (fields.NoticePeriod ?? 'Other') as NoticePeriod,
+    resumeUrl: hyperlink(fields.ResumeURL),
+    videoUrl: hyperlink(fields.VideoURL),
+    applicationDate: fields.ApplicationDate ?? '',
+    status: (fields.Status ?? 'New') as CandidateStatus,
+    notes: parseLog<NoteEntry>(fields.RecruiterNotesJSON, (entry) => entry.timestamp),
+    statusHistory: parseLog<StatusHistoryEntry>(
+      fields.StatusHistoryJSON,
+      (entry) => entry.timestamp,
+    ),
+    matchScore: typeof fields.MatchScore === 'number' ? fields.MatchScore : null,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate protection (spec.md §3 decision 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Blocks a re-application for the *same position* by the *same email* inside the
+ * configured window. A different role is always allowed, and the same role
+ * again once the window has passed.
+ */
+export async function findRecentDuplicate(
+  email: string,
+  position: Position,
+  now: Date = new Date(),
+): Promise<Candidate | null> {
+  const cutoff = new Date(now.getTime() - policyEnv.duplicateWindowDays * 86_400_000)
+  const client = appOnlyClient()
+
+  try {
+    const response = await client
+      .api(itemsApi())
+      .expand(`fields($select=${SELECTED_FIELDS})`)
+      .filter(
+        [
+          `fields/Email eq '${odata(email.toLowerCase())}'`,
+          `fields/Position eq '${odata(position)}'`,
+          `fields/ApplicationDate ge '${cutoff.toISOString()}'`,
+        ].join(' and '),
+      )
+      .header('Prefer', NON_INDEXED)
+      .top(1)
+      .get()
+
+    const [item] = (response.value ?? []) as ListItem[]
+    return item ? toCandidate(item) : null
+  } catch (error) {
+    throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'duplicate check')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Create
+// ---------------------------------------------------------------------------
+
+export type NewCandidate = {
+  candidateId: string
+  fullName: string
+  email: string
+  phone: string
+  location: string
+  linkedIn: string
+  position: Position
+  yearsExperience: number
+  currentCompany: string
+  currentJobTitle: string
+  currentCTC: string
+  expectedCTC: string
+  noticePeriod: NoticePeriod
+  resumeUrl: string
+  videoUrl: string
+  applicationDate: string
+}
+
+export async function createCandidate(input: NewCandidate): Promise<Candidate> {
+  const client = appOnlyClient()
+
+  const seededHistory: StatusHistoryEntry[] = [
+    {
+      author: 'System',
+      authorEmail: '',
+      timestamp: input.applicationDate,
+      fromStatus: null,
+      toStatus: 'New',
+    },
+  ]
+
+  try {
+    const item = (await client.api(itemsApi()).post({
+      fields: {
+        Title: input.candidateId,
+        CandidateID: input.candidateId,
+        FullName: input.fullName,
+        // Stored lower-cased so the duplicate check is a plain equality match.
+        Email: input.email.toLowerCase(),
+        Phone: input.phone,
+        Location: input.location,
+        LinkedIn: input.linkedIn ? { Url: input.linkedIn, Description: 'LinkedIn' } : null,
+        Position: input.position,
+        YearsExperience: input.yearsExperience,
+        CurrentCompany: input.currentCompany,
+        CurrentJobTitle: input.currentJobTitle,
+        CurrentCTC: input.currentCTC,
+        ExpectedCTC: input.expectedCTC,
+        NoticePeriod: input.noticePeriod,
+        ResumeURL: { Url: input.resumeUrl, Description: 'Resume' },
+        VideoURL: { Url: input.videoUrl, Description: 'Introduction video' },
+        ApplicationDate: input.applicationDate,
+        Status: 'New',
+        RecruiterNotesJSON: '[]',
+        StatusHistoryJSON: JSON.stringify(seededHistory),
+      },
+    })) as ListItem
+
+    return toCandidate({ ...item, fields: { ...item.fields } })
+  } catch (error) {
+    throw wrapGraphError(error, 'LIST_ITEM_CREATE_FAILED', 'create candidate list item')
+  }
+}
+
+export async function deleteCandidateItem(itemId: string): Promise<void> {
+  const client = appOnlyClient()
+  await client.api(itemsApi(`/${itemId}`)).delete()
+}
+
+// ---------------------------------------------------------------------------
+// Read
+// ---------------------------------------------------------------------------
+
+async function getByFilter(filter: string, client: Client): Promise<Candidate | null> {
+  const response = await client
+    .api(itemsApi())
+    .expand(`fields($select=${SELECTED_FIELDS})`)
+    .filter(filter)
+    .header('Prefer', NON_INDEXED)
+    .top(1)
+    .get()
+
+  const [item] = (response.value ?? []) as ListItem[]
+  return item ? toCandidate(item) : null
+}
+
+/** Looks a candidate up by their public `NUAIG-YYYY-NNNNN` id. */
+export async function getCandidateByCandidateId(
+  candidateId: string,
+  client: Client = appOnlyClient(),
+): Promise<Candidate | null> {
+  try {
+    return await getByFilter(`fields/CandidateID eq '${odata(candidateId)}'`, client)
+  } catch (error) {
+    throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'read candidate')
+  }
+}
+
+export type CandidateQuery = {
+  search?: string
+  position?: Position | 'all'
+  status?: CandidateStatus | 'all'
+  from?: string
+  to?: string
+  sort?: 'newest' | 'oldest' | 'experience'
+  /** Opaque Graph `@odata.nextLink`, passed straight back to fetch page N+1. */
+  cursor?: string
+  pageSize?: number
+}
+
+export type CandidatePage = {
+  items: Candidate[]
+  nextCursor: string | null
+}
+
+function buildFilter(query: CandidateQuery): string | null {
+  const clauses: string[] = []
+
+  if (query.position && query.position !== 'all') {
+    clauses.push(`fields/Position eq '${odata(query.position)}'`)
+  }
+  if (query.status && query.status !== 'all') {
+    clauses.push(`fields/Status eq '${odata(query.status)}'`)
+  }
+  if (query.from) {
+    clauses.push(`fields/ApplicationDate ge '${new Date(query.from).toISOString()}'`)
+  }
+  if (query.to) {
+    // Inclusive of the whole end day.
+    const to = new Date(query.to)
+    to.setUTCHours(23, 59, 59, 999)
+    clauses.push(`fields/ApplicationDate le '${to.toISOString()}'`)
+  }
+  if (query.search) {
+    const term = odata(query.search.trim())
+    // SharePoint list items have no $search; prefix matching on the columns a
+    // recruiter would actually type into the box is the closest equivalent.
+    clauses.push(
+      `(startswith(fields/FullName,'${term}') or startswith(fields/CandidateID,'${term}') or startswith(fields/Email,'${term}'))`,
+    )
+  }
+
+  return clauses.length ? clauses.join(' and ') : null
+}
+
+function buildOrderBy(sort: CandidateQuery['sort']): string {
+  switch (sort) {
+    case 'oldest':
+      return 'fields/ApplicationDate asc'
+    case 'experience':
+      return 'fields/YearsExperience desc'
+    default:
+      return 'fields/ApplicationDate desc'
+  }
+}
+
+/**
+ * One page of candidates. Filtering, sorting and paging all happen inside the
+ * Graph request — the dashboard never fetches everything and filters in memory
+ * (spec.md §3 decision 7).
+ */
+export async function queryCandidates(query: CandidateQuery): Promise<CandidatePage> {
+  const client = appOnlyClient()
+  const pageSize = query.pageSize ?? DASHBOARD_PAGE_SIZE
+
+  try {
+    // A cursor already encodes filter/sort/skiptoken, so it is followed verbatim.
+    const request = query.cursor
+      ? client.api(query.cursor)
+      : (() => {
+          let req = client
+            .api(itemsApi())
+            .expand(`fields($select=${SELECTED_FIELDS})`)
+            .orderby(buildOrderBy(query.sort))
+            .top(pageSize)
+          const filter = buildFilter(query)
+          if (filter) req = req.filter(filter)
+          return req
+        })()
+
+    const response = await request.header('Prefer', NON_INDEXED).get()
+
+    return {
+      items: ((response.value ?? []) as ListItem[]).map(toCandidate),
+      nextCursor: (response['@odata.nextLink'] as string | undefined) ?? null,
+    }
+  } catch (error) {
+    throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'query candidates')
+  }
+}
+
+/** Hard ceiling on the summary-tile tally, so one huge list can't stall a page. */
+const COUNT_PAGE_SIZE = 999
+const COUNT_MAX_PAGES = 25
+
+/**
+ * Tallies candidates per status for the dashboard tiles.
+ *
+ * This is the one place that reads the whole list, and it projects a single
+ * column to keep the payload small. Graph's SharePoint surface has no reliable
+ * filtered `$count`, and nine filtered round-trips would cost more than one
+ * lightweight scan. It is capped; past the cap the tiles under-report rather
+ * than hanging, and the table itself stays fully server-paginated.
+ */
+export async function countByStatus(): Promise<{
+  counts: Record<string, number>
+  total: number
+  truncated: boolean
+}> {
+  const client = appOnlyClient()
+  const counts: Record<string, number> = {}
+  let total = 0
+  let truncated = false
+
+  try {
+    let request = client
+      .api(itemsApi())
+      .expand('fields($select=Status)')
+      .top(COUNT_PAGE_SIZE)
+      .header('Prefer', NON_INDEXED)
+
+    for (let page = 0; page < COUNT_MAX_PAGES; page += 1) {
+      const response = await request.get()
+      for (const item of (response.value ?? []) as ListItem[]) {
+        const status = item.fields?.Status ?? 'New'
+        counts[status] = (counts[status] ?? 0) + 1
+        total += 1
+      }
+
+      const next = response['@odata.nextLink'] as string | undefined
+      if (!next) return { counts, total, truncated }
+      request = client.api(next).header('Prefer', NON_INDEXED)
+      truncated = page === COUNT_MAX_PAGES - 1
+    }
+
+    return { counts, total, truncated }
+  } catch (error) {
+    throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'count candidates by status')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Append-only writes (spec.md §3 decision 9)
+// ---------------------------------------------------------------------------
+
+const WRITE_ATTEMPTS = 4
+
+/**
+ * Read-modify-write under `If-Match`, retrying on 412 against freshly read
+ * state. `mutate` receives the current candidate and returns only the fields to
+ * patch; because it re-runs on each attempt, an append composed inside it is
+ * always applied on top of whatever the other recruiter just wrote — which is
+ * what makes concurrent notes additive rather than last-write-wins.
+ */
+async function patchWithRetry(
+  candidateId: string,
+  operation: string,
+  mutate: (current: Candidate) => Record<string, unknown>,
+): Promise<Candidate> {
+  const client = appOnlyClient()
+
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
+    const current = await getCandidateByCandidateId(candidateId, client)
+    if (!current) {
+      throw new AppError('VALIDATION_FAILED', `Candidate not found: ${candidateId}`, {
+        publicMessage: 'That candidate could not be found.',
+        context: { candidateId },
+      })
+    }
+
+    try {
+      await client
+        .api(itemsApi(`/${current.itemId}/fields`))
+        .header('If-Match', current.etag)
+        .patch(mutate(current))
+
+      const updated = await getCandidateByCandidateId(candidateId, client)
+      return updated ?? current
+    } catch (error) {
+      if (!isPreconditionFailed(error)) {
+        throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', operation)
+      }
+      // Another recruiter wrote first. Re-read and re-apply on top of theirs.
+      await new Promise((resolve) => setTimeout(resolve, 50 * 2 ** attempt))
+    }
+  }
+
+  throw new AppError('GRAPH_UNAVAILABLE', `${operation} lost ${WRITE_ATTEMPTS} concurrency races`, {
+    context: { candidateId },
+  })
+}
+
+export async function appendNote(
+  candidateId: string,
+  note: Omit<NoteEntry, 'timestamp'>,
+): Promise<Candidate> {
+  return patchWithRetry(candidateId, 'append recruiter note', (current) => {
+    const entry: NoteEntry = { ...note, timestamp: new Date().toISOString() }
+    return { RecruiterNotesJSON: JSON.stringify([...current.notes, entry]) }
+  })
+}
+
+/**
+ * Appends a status change to the history log and moves `Status` to the new
+ * value. The current status is simply the latest history entry, so simultaneous
+ * changes both survive in history and the later timestamp reads as current.
+ */
+export async function changeStatus(
+  candidateId: string,
+  toStatus: CandidateStatus,
+  author: { name: string; email: string },
+): Promise<Candidate> {
+  return patchWithRetry(candidateId, 'change candidate status', (current) => {
+    const entry: StatusHistoryEntry = {
+      author: author.name,
+      authorEmail: author.email,
+      timestamp: new Date().toISOString(),
+      fromStatus: current.status,
+      toStatus,
+    }
+    return {
+      Status: toStatus,
+      StatusHistoryJSON: JSON.stringify([...current.statusHistory, entry]),
+    }
+  })
+}
