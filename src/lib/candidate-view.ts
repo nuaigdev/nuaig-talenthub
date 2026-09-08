@@ -28,6 +28,14 @@ export type CandidateView = {
   status: CandidateStatus
   hasResume: boolean
   hasVideo: boolean
+  /**
+   * Extension of the stored resume, lower-case and without the dot. The viewer
+   * needs it because only a PDF renders in a browser — a DOC or DOCX has to be
+   * offered as a download instead of silently failing in a blank frame.
+   */
+  resumeExt: string
+  /** Extension of the stored video, for choosing the <source> type. */
+  videoExt: string
   notes: NoteEntry[]
   statusHistory: StatusHistoryEntry[]
 }
@@ -53,9 +61,23 @@ export function toView(candidate: Candidate): CandidateView {
     // Documents are opened through /api/recruiter/documents/… instead (§10.2).
     hasResume: !!candidate.resumeUrl,
     hasVideo: !!candidate.videoUrl,
+    resumeExt: extensionOf(candidate.resumeUrl),
+    videoExt: extensionOf(candidate.videoUrl),
     notes: candidate.notes,
     statusHistory: candidate.statusHistory,
   }
+}
+
+/**
+ * Pulls the extension off a stored webUrl. Storage names are normalised
+ * (`Resume.pdf`, `Introduction.mp4`), so the last path segment is reliable —
+ * but the URL is percent-encoded and may carry a query string.
+ */
+function extensionOf(url: string): string {
+  if (!url) return ''
+  const last = url.split('?')[0].split('#')[0].split('/').pop() ?? ''
+  const dot = last.lastIndexOf('.')
+  return dot === -1 ? '' : decodeURIComponent(last.slice(dot + 1)).toLowerCase()
 }
 
 export function formatDate(iso: string): string {

@@ -7,13 +7,14 @@ import { formatDate, toView } from '@/lib/candidate-view'
 import { Card, StatusBadge } from '@/components/ui'
 import { StatusControl } from '@/components/recruiter/StatusControl'
 import { NotesPanel } from '@/components/recruiter/NotesPanel'
+import { DocumentViewer } from '@/components/recruiter/DocumentViewer'
 
 /**
  * Candidate detail (spec.md §10.2).
  *
- * The documents are reached through `/api/recruiter/documents/…`, which
- * re-authorizes and then redirects to a short-lived Graph URL. No SharePoint
- * link ever reaches this page's HTML.
+ * Documents open in a modal on this page — never downloaded, never a new tab —
+ * served by `/api/recruiter/documents/…`, which re-authorizes on every request.
+ * No SharePoint link ever reaches this page's HTML.
  */
 
 export const dynamic = 'force-dynamic'
@@ -98,21 +99,13 @@ export default async function CandidateDetailPage({ params }: { params: Params }
 
           <Card className="p-5 sm:p-6">
             <h2 className="mb-4 text-sm font-semibold text-ink">Documents</h2>
-            <div className="flex flex-wrap gap-3">
-              <DocumentLink
-                href={`/api/recruiter/documents/${encodeURIComponent(candidate.candidateId)}/resume`}
-                label="View Resume"
-                available={candidate.hasResume}
-              />
-              <DocumentLink
-                href={`/api/recruiter/documents/${encodeURIComponent(candidate.candidateId)}/video`}
-                label="Watch Video"
-                available={candidate.hasVideo}
-              />
-            </div>
-            <p className="mt-3 text-xs text-muted">
-              Documents open through a short-lived secure link and are not publicly accessible.
-            </p>
+            <DocumentViewer
+              candidateId={candidate.candidateId}
+              candidateName={candidate.fullName}
+              hasResume={candidate.hasResume}
+              hasVideo={candidate.hasVideo}
+              resumeExt={candidate.resumeExt}
+            />
           </Card>
 
           <Card className="p-5 sm:p-6">
@@ -140,34 +133,5 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
       <dt className="text-xs font-medium uppercase tracking-wide text-secondary">{label}</dt>
       <dd className="mt-0.5 text-sm text-ink">{children}</dd>
     </div>
-  )
-}
-
-function DocumentLink({
-  href,
-  label,
-  available,
-}: {
-  href: string
-  label: string
-  available: boolean
-}) {
-  if (!available) {
-    return (
-      <span className="inline-flex h-10 items-center rounded-md border border-border px-5 text-sm text-muted">
-        {label} — not available
-      </span>
-    )
-  }
-
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex h-10 items-center rounded-md border border-border-strong bg-white px-5 text-sm font-medium text-ink transition-colors hover:border-brand hover:text-brand"
-    >
-      {label}
-    </a>
   )
 }

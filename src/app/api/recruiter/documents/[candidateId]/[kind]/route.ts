@@ -10,12 +10,25 @@ import { logger } from '@/lib/logger'
  * Brokers access to a candidate's resume or intro video (spec.md §10.2, §12).
  *
  * Recruiters never receive a SharePoint URL. This handler re-authorizes, locates
- * the file with app-only Graph credentials, mints a short-lived pre-authenticated
- * download URL, and redirects to it. The URL expires on its own and grants access
- * to exactly one file.
+ * the file with app-only credentials, and serves it so the dashboard can display
+ * it inline — never as a download, and never in another tab.
  *
- * The folder is resolved from the candidate's own record rather than from
- * anything in the request, so a recruiter cannot steer this at an arbitrary path.
+ * The two file kinds are served differently, and deliberately:
+ *
+ *   resume  — proxied through this function with `Content-Disposition: inline`.
+ *             Graph's pre-authenticated URL sets `attachment`, which makes a
+ *             browser download the file instead of rendering it, so an <iframe>
+ *             pointed at it would defeat the whole purpose. Resumes are capped
+ *             at 10MB, so proxying one is cheap.
+ *
+ *   video   — never proxied. `?as=url` hands the player the short-lived Graph
+ *             URL so bytes stream straight from Microsoft with native range
+ *             requests and seeking. Pushing 500MB through a serverless function
+ *             is exactly what §3 decision 3 rules out, and that reasoning does
+ *             not stop applying on the way back out.
+ *
+ * The folder is resolved from the candidate's own record, never from anything in
+ * the request, so this cannot be steered at an arbitrary path.
  */
 
 export const runtime = 'nodejs'
@@ -23,9 +36,10 @@ export const dynamic = 'force-dynamic'
 
 type Params = Promise<{ candidateId: string; kind: string }>
 
-export async function GET(_request: Request, { params }: { params: Params }) {
+export async function GET(request: Request, { params }: { params: Params }) {
   const { candidateId: rawId, kind } = await params
   const candidateId = decodeURIComponent(rawId)
+  const asUrl = new URL(request.url).searchParams.get('as') === 'url'
 
   try {
     const recruiter = await requireRecruiter()
@@ -44,7 +58,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     }
 
     // Folder name is regenerated from stored data with the same sanitiser used
-    // at write time, so it round-trips exactly (§7.1).
+    // at write time, so it round-trips exactly (spec.md §7.1).
     const year = new Date(candidate.applicationDate).getFullYear()
     const folderPath = candidateFolderPath(
       String(year),
@@ -69,12 +83,49 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       actor: recruiter.email,
     })
 
-    // 302 rather than proxying the bytes: the video streams straight from
-    // Microsoft with range support, and no large body crosses this function.
-    return NextResponse.redirect(downloadUrl, {
-      status: 302,
-      headers: { 'Cache-Control': 'no-store, private' },
+    // The video player asks for the URL itself, so seeking talks to Microsoft
+    // directly instead of re-entering this function on every scrub.
+    if (asUrl) {
+      return NextResponse.json(
+        {
+          url: downloadUrl,
+          fileName: item.name,
+          contentType: item.file?.mimeType ?? 'application/octet-stream',
+        },
+        { headers: { 'Cache-Control': 'no-store, private' } },
+      )
+    }
+
+    if (kind === 'video') {
+      // Direct <video src> fallback: redirect rather than carry the bytes.
+      return NextResponse.redirect(downloadUrl, {
+        status: 302,
+        headers: { 'Cache-Control': 'no-store, private' },
+      })
+    }
+
+    // Resume: stream the bytes through with an inline disposition so the
+    // browser renders it in place.
+    const upstream = await fetch(downloadUrl, { cache: 'no-store' })
+    if (!upstream.ok || !upstream.body) {
+      throw new AppError('GRAPH_UNAVAILABLE', `Resume fetch failed: ${upstream.status}`, {
+        context: { itemId: item.id },
+      })
+    }
+
+    const contentType = item.file?.mimeType ?? 'application/pdf'
+    const headers = new Headers({
+      'Content-Type': contentType,
+      // The filename is the normalised storage name, which carries no candidate
+      // data beyond what the recruiter is already looking at.
+      'Content-Disposition': `inline; filename="${item.name}"`,
+      'Cache-Control': 'no-store, private',
+      'X-Content-Type-Options': 'nosniff',
     })
+    const length = upstream.headers.get('content-length')
+    if (length) headers.set('Content-Length', length)
+
+    return new NextResponse(upstream.body, { status: 200, headers })
   } catch (error) {
     const appError = toAppError(error, 'GRAPH_UNAVAILABLE')
     logger.error('Document access failed', appError, {
