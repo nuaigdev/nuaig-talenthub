@@ -1,5 +1,5 @@
 import type { CandidateQuery } from './graph/candidates'
-import { POSITIONS, isStatus, type Position } from './constants'
+import { isStatus } from './constants'
 
 /**
  * Translation between URL search params and a typed Graph query.
@@ -22,10 +22,11 @@ export function parseQuery(params: Record<string, string | string[] | undefined>
 
   return {
     search: one('search') || undefined,
-    position:
-      position && (POSITIONS as readonly string[]).includes(position)
-        ? (position as Position)
-        : 'all',
+    // Positions are recruiter-managed data now, so this cannot be checked
+    // against a fixed list. The value is escaped before it reaches the OData
+    // filter (`odata()` in graph/candidates.ts); an unknown one simply matches
+    // nothing, which is the correct outcome for a stale bookmark.
+    position: position ? position.slice(0, 150) : 'all',
     status: status && isStatus(status) ? status : 'all',
     from: isDate(one('from')) ? one('from') : undefined,
     to: isDate(one('to')) ? one('to') : undefined,

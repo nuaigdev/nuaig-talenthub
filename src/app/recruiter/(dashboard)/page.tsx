@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { requireRecruiter } from '@/lib/recruiter-session'
 import { countByStatus, queryCandidates } from '@/lib/graph/candidates'
 import { parseQuery, serialiseQuery } from '@/lib/candidate-query'
+import { activePositions } from '@/lib/graph/positions'
 import { encodeCursor } from '@/lib/cursor'
 import { toView } from '@/lib/candidate-view'
 import { Alert } from '@/components/ui'
@@ -30,12 +31,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const query = parseQuery(await searchParams)
 
   try {
-    // Tiles and the first page in parallel — they are independent reads.
-    const [summary, page] = await Promise.all([countByStatus(), queryCandidates(query)])
+    // Independent reads, so they go out together.
+    const [summary, page, positions] = await Promise.all([
+      countByStatus(),
+      queryCandidates(query),
+      activePositions(),
+    ])
 
     return (
       <>
-        <FilterBar basePath="/recruiter" />
+        <FilterBar basePath="/recruiter" positions={positions} />
 
         <div className="w-full space-y-6 px-4 py-6 sm:px-6">
           <div>

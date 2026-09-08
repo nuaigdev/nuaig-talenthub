@@ -65,6 +65,14 @@ export const sharePointEnv = {
     return required('SHAREPOINT_RECRUITERS_LIST_ID')
   },
   /**
+   * Optional. When unset, the app falls back to the built-in position list in
+   * `constants.ts`, so an existing deployment keeps working until the list is
+   * created and this is configured.
+   */
+  get positionsListId() {
+    return optional('SHAREPOINT_POSITIONS_LIST_ID', '')
+  },
+  /**
    * Optional sub-folder inside the document library that year folders live
    * under. Defaults to the library root, which matches spec §7.1 when the
    * library itself is the `Candidates` library. Set this only when candidate

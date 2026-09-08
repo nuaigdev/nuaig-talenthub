@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { NOTICE_PERIODS, POSITIONS, STATUSES } from './constants'
+import { NOTICE_PERIODS, STATUSES } from './constants'
 
 /**
  * One schema set, used in two places:
@@ -35,17 +35,43 @@ export const personalInfoSchema = z.object({
     .transform((value) => value || ''),
 })
 
-export const positionSchema = z.object({
-  position: z.enum(POSITIONS, { errorMap: () => ({ message: 'Please select a position' }) }),
-  yearsExperience: z
-    .number({ invalid_type_error: 'Please enter your years of experience' })
-    .min(0, 'Years of experience cannot be negative')
-    .max(60, 'Please enter a realistic number of years'),
-  currentCTC: trimmed(60).optional().default(''),
-  expectedCTC: trimmed(60).optional().default(''),
-  noticePeriod: z.enum(NOTICE_PERIODS, {
-    errorMap: () => ({ message: 'Please select a notice period' }),
-  }),
+const positionFields = z.object({
+    // Not an enum any more: positions are rows in a SharePoint list that
+    // recruiters manage, so the set is not known at compile time. The submit
+    // route checks the value against the live list — see `isOfferedPosition`.
+    position: requiredText('Position', 150),
+    yearsExperience: z
+      .number({ invalid_type_error: 'Please enter your years of experience' })
+      .min(0, 'Total experience cannot be negative')
+      .max(60, 'Please enter a realistic number of years'),
+    relevantExperience: z
+      .number({ invalid_type_error: 'Please enter your relevant experience' })
+      .min(0, 'Relevant experience cannot be negative')
+      .max(60, 'Please enter a realistic number of years'),
+    currentCTC: trimmed(60).optional().default(''),
+    expectedCTC: trimmed(60).optional().default(''),
+    noticePeriod: z.enum(NOTICE_PERIODS, {
+      errorMap: () => ({ message: 'Please select a notice period' }),
+    }),
+})
+
+/**
+ * Relevant experience is a subset of total experience by definition. Applied as
+ * a refinement on both schemas below rather than baked into `positionFields`,
+ * because a refined schema is a ZodEffects and can no longer be `.merge()`d.
+ */
+const relevantWithinTotal = [
+  (value: { relevantExperience: number; yearsExperience: number }) =>
+    value.relevantExperience <= value.yearsExperience,
+  {
+    message: 'Relevant experience cannot exceed your total experience',
+    path: ['relevantExperience'] as const,
+  },
+] as const
+
+export const positionSchema = positionFields.refine(relevantWithinTotal[0], {
+  ...relevantWithinTotal[1],
+  path: [...relevantWithinTotal[1].path],
 })
 
 /** What the browser reports after finishing a direct-to-Microsoft upload. */
@@ -57,7 +83,7 @@ export const uploadedFileSchema = z.object({
 })
 
 export const submissionSchema = personalInfoSchema
-  .merge(positionSchema)
+  .merge(positionFields)
   .extend({
     resume: uploadedFileSchema,
     video: uploadedFileSchema,
@@ -66,6 +92,10 @@ export const submissionSchema = personalInfoSchema
     }),
     /** Issued when the draft folder was created; ties the upload to this submission. */
     draftToken: z.string().min(1),
+  })
+  .refine(relevantWithinTotal[0], {
+    ...relevantWithinTotal[1],
+    path: [...relevantWithinTotal[1].path],
   })
 
 export type PersonalInfo = z.infer<typeof personalInfoSchema>

@@ -15,6 +15,7 @@ import { Logo } from '@/components/brand/Logo'
 const NAV = [
   { href: '/recruiter', label: 'Dashboard', exact: true },
   { href: '/recruiter/candidates', label: 'Candidates', exact: false },
+  { href: '/recruiter/positions', label: 'Positions', exact: false },
   // Room is deliberately left here for a future Reports link (§6.2).
 ]
 

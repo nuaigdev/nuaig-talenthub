@@ -42,6 +42,8 @@ Because the candidate ID doesn't exist until submit, uploads land in `_drafts/<u
 
 **Nothing is ever overwritten.** Notes and status changes are append-only JSON logs on the list item. `patchWithRetry` in `src/lib/graph/candidates.ts` re-reads and re-applies the mutation on 412 — that re-run is what makes concurrent notes additive rather than last-write-wins. Preserve that shape when adding writes.
 
+**Positions are data, not an enum.** They live in a `Positions` SharePoint list that recruiters manage at `/recruiter/positions` (`src/lib/graph/positions.ts`), mirroring how `Recruiters` works. `DEFAULT_POSITIONS` in `constants.ts` is only a fallback for when the list is unconfigured or unreachable — the public form must render regardless. Because the set is no longer known at compile time, `positionSchema` can only check that a string arrived; `isOfferedPosition` in the submit route is what actually validates it. Positions are closed (`Active = No`), never deleted, so candidate history keeps resolving.
+
 **Queries are server-side.** Filter/search/sort/paginate inside the Graph request; never fetch-all-then-filter. The one documented exception is `countByStatus` for the summary tiles, which projects a single column and is capped.
 
 **Cursors are encrypted.** A raw `@odata.nextLink` contains site and list IDs, which §12 forbids exposing, so `src/lib/cursor.ts` AES-GCM encrypts it into an opaque, tamper-evident token. Never put a nextLink in a URL or a client prop.

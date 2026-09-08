@@ -4,7 +4,13 @@
  * Choice columns described in spec.md §7.2 and documented in SHAREPOINT_SETUP.md.
  */
 
-export const POSITIONS = [
+/**
+ * Seed positions, and only a fallback. The live list comes from the `Positions`
+ * SharePoint list, which recruiters manage themselves (`lib/graph/positions.ts`).
+ * These are used when that list is not configured yet, and when reading it
+ * fails — the public application form must still render.
+ */
+export const DEFAULT_POSITIONS = [
   'Data Lead',
   'Data Engineer',
   'Data Analyst',
@@ -15,7 +21,8 @@ export const POSITIONS = [
   'Other',
 ] as const
 
-export type Position = (typeof POSITIONS)[number]
+/** A position is free-form text now, not a closed union — recruiters add them. */
+export type Position = string
 
 export const NOTICE_PERIODS = [
   'Immediate',

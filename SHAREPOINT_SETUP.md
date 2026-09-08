@@ -62,8 +62,9 @@ column created with a different name keeps the original internal name forever).
 | `Phone` | Single line of text | |
 | `Location` | Single line of text | |
 | `LinkedIn` | Single line of text | Optional. **Not** Hyperlink — see the note below. |
-| `Position` | Choice | The 8 options in §4 below. **Index this column.** |
-| `YearsExperience` | Number | Allow decimals |
+| `Position` | Single line of text | The role applied for. Options come from the `Positions` list (§6a), so this is text, not Choice. **Index this column.** **Never delete it** — the duplicate check and the dashboard filter both query it. |
+| `YearsExperience` | Number | Total experience. Allow decimals |
+| `RelevantExperience` | Number | Experience relevant to the role. Allow decimals |
 | `CurrentCompany` | Single line of text | **Unused.** Removed from the form; the app no longer reads or writes it. Safe to leave or delete. |
 | `CurrentJobTitle` | Single line of text | **Unused.** As above. |
 | `CurrentCTC` | Single line of text | Free text — currency varies |
@@ -134,17 +135,8 @@ history. Don't.
 
 Type these exactly — they are compared as strings against `src/lib/constants.ts`.
 
-**`Position`**
-```
-Data Lead
-Data Engineer
-Data Analyst
-AI Engineer
-Automation Lead
-Automation Engineer
-Business Analyst
-Other
-```
+`Position` is **not** in this list. It is a text column whose options come from
+the `Positions` list (§6a), which recruiters manage themselves.
 
 **`NoticePeriod`**
 ```
@@ -170,7 +162,7 @@ Rejected
 On Hold
 ```
 
-For all three, turn **off** "Can add values manually" so a typo cannot create a
+For both, turn **off** "Can add values manually" so a typo cannot create a
 status the app does not recognise.
 
 ---
@@ -192,6 +184,33 @@ guarantee unique candidate IDs.
 Do not edit `CurrentValue` by hand while the app is live — you would hand two
 candidates the same ID. If you must reset it (e.g. after clearing test data),
 take the app offline first.
+
+---
+
+## 6a. Create the `Positions` list
+
+**New → List → Blank list**, named `Positions`. This holds the roles candidates
+can apply for. Recruiters manage it in the app at **/recruiter/positions**, so
+you should not need to touch it again after creating it.
+
+| Column | Type | Notes |
+|---|---|---|
+| `Title` | Single line of text | The built-in Title column. The position name, e.g. `AI Engineer`. |
+| `Active` | Yes/No | Default **Yes**. No hides it from the application form. |
+
+Seed it with your current roles, or add them from the dashboard once the app is
+running.
+
+This list is **optional**. Leave `SHAREPOINT_POSITIONS_LIST_ID` blank and the app
+falls back to the built-in list in `src/lib/constants.ts` — the application form
+still works, recruiters just cannot change the options. The same fallback
+applies if the list is briefly unreachable, so a Graph blip never takes down the
+public form.
+
+**Close, don't delete.** Setting `Active = No` removes a position from the
+application form while leaving it readable on the records of everyone who
+already applied for it. Deleting the row leaves their history pointing at
+something that no longer exists.
 
 ---
 
@@ -247,7 +266,8 @@ Pick the entry whose `name` is `Candidates` and copy its `id`.
 GET https://graph.microsoft.com/v1.0/sites/{site-id}/lists
 ```
 
-Match on `displayName` and copy each `id` (a GUID).
+Match on `displayName` and copy each `id` (a GUID). `Positions` gives you
+`SHAREPOINT_POSITIONS_LIST_ID`, which is optional — see §6a.
 
 ---
 

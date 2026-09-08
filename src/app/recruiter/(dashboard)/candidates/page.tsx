@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { requireRecruiter } from '@/lib/recruiter-session'
 import { queryCandidates } from '@/lib/graph/candidates'
 import { parseQuery, serialiseQuery } from '@/lib/candidate-query'
+import { activePositions } from '@/lib/graph/positions'
 import { encodeCursor } from '@/lib/cursor'
 import { toView } from '@/lib/candidate-view'
 import { Alert } from '@/components/ui'
@@ -28,11 +29,11 @@ export default async function CandidatesPage({ searchParams }: { searchParams: S
   const query = parseQuery(await searchParams)
 
   try {
-    const page = await queryCandidates(query)
+    const [page, positions] = await Promise.all([queryCandidates(query), activePositions()])
 
     return (
       <>
-        <FilterBar basePath="/recruiter/candidates" />
+        <FilterBar basePath="/recruiter/candidates" positions={positions} />
 
         <div className="w-full space-y-6 px-4 py-6 sm:px-6">
           <div>

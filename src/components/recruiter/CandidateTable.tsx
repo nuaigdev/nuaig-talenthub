@@ -68,7 +68,7 @@ export function CandidateTable({
         {/* Wide table scrolls inside its own container so the page never
             scrolls horizontally on a narrow screen. */}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[62rem] border-collapse text-sm">
+          <table className="w-full min-w-[68rem] border-collapse text-sm">
             <caption className="sr-only">Candidates matching the current filters</caption>
             <thead>
               <tr className="border-b border-border bg-surface text-left">
@@ -76,6 +76,7 @@ export function CandidateTable({
                 <Th>Name</Th>
                 <Th>Position</Th>
                 <Th align="right">Experience</Th>
+                <Th align="right">Relevant</Th>
                 <Th>Expected CTC</Th>
                 <Th>Notice</Th>
                 <Th>Applied</Th>
@@ -103,6 +104,9 @@ export function CandidateTable({
                   <td className="px-4 py-3 text-ink">{candidate.position}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-ink">
                     {candidate.yearsExperience} yrs
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-secondary">
+                    {candidate.relevantExperience} yrs
                   </td>
                   <td className="px-4 py-3 text-secondary">{candidate.expectedCTC || '—'}</td>
                   <td className="px-4 py-3 text-secondary">{candidate.noticePeriod}</td>

@@ -12,6 +12,7 @@ import {
 import { nextCandidateId } from '@/lib/graph/counters'
 import { createCandidate, deleteCandidateItem, findRecentDuplicate } from '@/lib/graph/candidates'
 import { sendCandidateConfirmation } from '@/lib/graph/mail'
+import { isOfferedPosition } from '@/lib/graph/positions'
 import { candidateFolderName, storageFileName } from '@/lib/sanitize'
 import { matchesDeclaredType } from '@/lib/file-signature'
 import { uploadEnv } from '@/lib/env'
@@ -68,6 +69,16 @@ export async function POST(request: Request) {
     enforceRateLimit('submit', [ip, input.email.toLowerCase()], RATE_LIMITS.submit)
 
     const draftId = verifyDraftToken(input.draftToken)
+
+    // Positions are recruiter-managed rows rather than a fixed enum, so the
+    // schema can only check that a string was sent. This is where it is checked
+    // against what is actually on offer — the client's dropdown is a
+    // convenience, never the authority (§12).
+    if (!(await isOfferedPosition(input.position))) {
+      throw new AppError('VALIDATION_FAILED', `Position not offered: ${input.position}`, {
+        publicMessage: 'That position is no longer open. Please choose another and try again.',
+      })
+    }
 
     // 2. Duplicate protection: same email + same position inside the window
     //    (§3 decision 1). Runs before anything is created.
@@ -147,6 +158,7 @@ export async function POST(request: Request) {
       linkedIn: input.linkedIn,
       position: input.position,
       yearsExperience: input.yearsExperience,
+      relevantExperience: input.relevantExperience,
       currentCTC: input.currentCTC,
       expectedCTC: input.expectedCTC,
       noticePeriod: input.noticePeriod,

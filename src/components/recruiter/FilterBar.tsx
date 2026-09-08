@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { Button, Input, Select, Spinner } from '@/components/ui'
-import { POSITIONS, STATUSES } from '@/lib/constants'
+import { STATUSES } from '@/lib/constants'
 
 /**
  * Filter bar, sitting directly under the header (spec.md §10.1) — explicitly
@@ -13,7 +13,14 @@ import { POSITIONS, STATUSES } from '@/lib/constants'
  * of the Graph request, never applied to an already-fetched page, so paging and
  * filtering compose correctly (§3 decision 7).
  */
-export function FilterBar({ basePath }: { basePath: string }) {
+export function FilterBar({
+  basePath,
+  positions,
+}: {
+  basePath: string
+  /** Live options from the recruiter-managed Positions list. */
+  positions: string[]
+}) {
   const router = useRouter()
   const params = useSearchParams()
   const [pending, startTransition] = useTransition()
@@ -86,7 +93,7 @@ export function FilterBar({ basePath }: { basePath: string }) {
               className="w-48"
             >
               <option value="all">All positions</option>
-              {POSITIONS.map((option) => (
+              {positions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>

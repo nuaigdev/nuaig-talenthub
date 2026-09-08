@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { ApplyWizard } from '@/components/apply/ApplyWizard'
 import { uploadEnv } from '@/lib/env'
+import { activePositions } from '@/lib/graph/positions'
 
 /**
  * The public application entry point — no authentication of any kind (spec.md §1).
@@ -23,9 +24,14 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic'
 
-export default function ApplyPage() {
+export default async function ApplyPage() {
+  // Positions come from the recruiter-managed list, with a built-in fallback if
+  // that list is unreachable — the public form must render regardless.
+  const positions = await activePositions()
+
   return (
     <ApplyWizard
+      positions={positions}
       limits={{
         maxResumeBytes: uploadEnv.maxResumeBytes,
         maxVideoBytes: uploadEnv.maxVideoBytes,

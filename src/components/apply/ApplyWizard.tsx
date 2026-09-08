@@ -8,7 +8,6 @@ import {
   APPLY_SECTIONS,
   CONSENT_TEXT,
   NOTICE_PERIODS,
-  POSITIONS,
   VIDEO_INSTRUCTIONS,
   type ApplySectionId,
 } from '@/lib/constants'
@@ -46,6 +45,7 @@ type PersonalState = {
 type PositionState = {
   position: string
   yearsExperience: string
+  relevantExperience: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: string
@@ -62,6 +62,7 @@ const EMPTY_PERSONAL: PersonalState = {
 const EMPTY_POSITION: PositionState = {
   position: '',
   yearsExperience: '',
+  relevantExperience: '',
   currentCTC: '',
   expectedCTC: '',
   noticePeriod: '',
@@ -70,7 +71,14 @@ const EMPTY_POSITION: PositionState = {
 /** Where the top of a section must sit before the rail counts it as current. */
 const ACTIVE_LINE_PX = 160
 
-export function ApplyWizard({ limits }: { limits: UploadLimits }) {
+export function ApplyWizard({
+  limits,
+  positions,
+}: {
+  limits: UploadLimits
+  /** Live options from the recruiter-managed Positions list. */
+  positions: string[]
+}) {
   const [personal, setPersonal] = useState(EMPTY_PERSONAL)
   const [position, setPosition] = useState(EMPTY_POSITION)
   const [resume, setResume] = useState<UploadState>({ phase: 'empty' })
@@ -87,6 +95,8 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
   const parsedPosition = positionSchema.safeParse({
     ...position,
     yearsExperience: position.yearsExperience === '' ? Number.NaN : Number(position.yearsExperience),
+    relevantExperience:
+      position.relevantExperience === '' ? Number.NaN : Number(position.relevantExperience),
   })
 
   const complete: Record<ApplySectionId, boolean> = {
@@ -181,6 +191,7 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
           ...personal,
           ...position,
           yearsExperience: Number(position.yearsExperience),
+          relevantExperience: Number(position.relevantExperience),
           resume: resume.item,
           video: video.item,
           consent: true,
@@ -231,7 +242,12 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
           </FormSection>
 
           <FormSection id="position">
-            <PositionStep value={position} onChange={setPosition} errors={errors} />
+            <PositionStep
+              value={position}
+              onChange={setPosition}
+              errors={errors}
+              positions={positions}
+            />
           </FormSection>
 
           <FormSection id="resume">
@@ -404,10 +420,12 @@ function PositionStep({
   value,
   onChange,
   errors,
+  positions,
 }: {
   value: PositionState
   onChange: (next: PositionState) => void
   errors: Record<string, string>
+  positions: string[]
 }) {
   const set =
     (key: keyof PositionState) =>
@@ -425,7 +443,7 @@ function PositionStep({
           aria-describedby={errors.position ? 'position-error' : undefined}
         >
           <option value="">Select a position</option>
-          {POSITIONS.map((option) => (
+          {positions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -435,7 +453,7 @@ function PositionStep({
 
       <Field
         id="yearsExperience"
-        label="Years of experience"
+        label="Total years of experience"
         required
         error={errors.yearsExperience}
       >
@@ -450,6 +468,29 @@ function PositionStep({
           onChange={set('yearsExperience')}
           invalid={!!errors.yearsExperience}
           aria-describedby={errors.yearsExperience ? 'yearsExperience-error' : undefined}
+        />
+      </Field>
+
+      <Field
+        id="relevantExperience"
+        label="Years of relevant experience"
+        required
+        hint="Time spent doing work directly relevant to this role"
+        error={errors.relevantExperience}
+      >
+        <Input
+          id="relevantExperience"
+          type="number"
+          min={0}
+          max={60}
+          step={0.5}
+          inputMode="decimal"
+          value={value.relevantExperience}
+          onChange={set('relevantExperience')}
+          invalid={!!errors.relevantExperience}
+          aria-describedby={
+            errors.relevantExperience ? 'relevantExperience-error' : 'relevantExperience-hint'
+          }
         />
       </Field>
 
@@ -502,7 +543,11 @@ function ConsentStep({
     ['Phone', personal.phone],
     ['Location', personal.location],
     ['Position', position.position],
-    ['Experience', position.yearsExperience ? `${position.yearsExperience} years` : ''],
+    ['Total experience', position.yearsExperience ? `${position.yearsExperience} years` : ''],
+    [
+      'Relevant experience',
+      position.relevantExperience ? `${position.relevantExperience} years` : '',
+    ],
     ['Notice period', position.noticePeriod],
     ['Resume', resumeName],
     ['Introduction video', videoName],
