@@ -44,6 +44,33 @@ function isActive(value: unknown): boolean {
   return true
 }
 
+/**
+ * `Active` may be modelled as Yes/No or as a Choice of "Yes"/"No", and the two
+ * accept different value shapes on write — a Choice column rejects a boolean.
+ * Reading is tolerant (`isActive`), so writing has to be too: the column's real
+ * type is looked up once and cached for the lifetime of the instance.
+ */
+let activeIsChoice: boolean | null = null
+
+async function activeValue(active: boolean): Promise<boolean | string> {
+  if (activeIsChoice === null) {
+    try {
+      const columns = await appOnlyClient()
+        .api(`/sites/${sharePointEnv.siteId}/lists/${sharePointEnv.positionsListId}/columns`)
+        .get()
+      const column = (columns.value ?? []).find(
+        (c: { name?: string }) => c.name === 'Active',
+      ) as { choice?: unknown; boolean?: unknown } | undefined
+      activeIsChoice = !!column?.choice
+    } catch {
+      // Unknown: assume Yes/No, which is what the setup guide specifies.
+      activeIsChoice = false
+    }
+  }
+
+  return activeIsChoice ? (active ? 'Yes' : 'No') : active
+}
+
 async function load(): Promise<PositionRecord[]> {
   const client = appOnlyClient()
   const records: PositionRecord[] = []
@@ -136,7 +163,7 @@ export async function addPosition(title: string): Promise<void> {
   try {
     await appOnlyClient()
       .api(itemsApi())
-      .post({ fields: { Title: clean, Active: true } })
+      .post({ fields: { Title: clean, Active: await activeValue(true) } })
     invalidate()
   } catch (error) {
     throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'add position')
@@ -149,7 +176,9 @@ export async function setPositionActive(itemId: string, active: boolean): Promis
   }
 
   try {
-    await appOnlyClient().api(itemsApi(`/${itemId}/fields`)).patch({ Active: active })
+    await appOnlyClient()
+      .api(itemsApi(`/${itemId}/fields`))
+      .patch({ Active: await activeValue(active) })
     invalidate()
   } catch (error) {
     throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'update position')
