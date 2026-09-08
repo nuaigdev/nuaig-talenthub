@@ -11,8 +11,7 @@ import { logger } from '@/lib/logger'
  * Recruiter mutations (spec.md §10.2).
  *
  * Both actions re-authorize from scratch — a server action is a public HTTP
- * endpoint, so the middleware redirect and the page-level check upstream count
- * for nothing here (§12). The recruiter's identity comes from the validated
+ * endpoint, so the layout's gate upstream counts for nothing here (§12). The recruiter's identity comes from the validated
  * session, never from the client payload, which is what makes the audit trail
  * trustworthy.
  */

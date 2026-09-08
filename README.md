@@ -51,7 +51,7 @@ Candidate browser                         Recruiter browser
 │  Next.js App Router (Vercel)                              │
 │                                                            │
 │  /apply/*                    /recruiter/*                  │
-│  public, unauthenticated     middleware + requireRecruiter │
+│  public, unauthenticated     requireRecruiter() gate       │
 │         │                             │                    │
 │         └───────────┬─────────────────┘                    │
 │                     ▼                                      │

@@ -28,11 +28,15 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   // Only ever return to our own dashboard — never to a caller-supplied origin.
   const callbackUrl = requested?.startsWith('/recruiter') ? requested : '/recruiter'
 
-  // Someone already authorized has no reason to be here.
-  if (await getRecruiter()) redirect(callbackUrl)
-
   const errorParam = params.error
   const error = Array.isArray(errorParam) ? errorParam[0] : errorParam
+
+  // Someone already authorized has no reason to be here — but never bounce on a
+  // request that arrived carrying an error. Something upstream just refused
+  // this user, so redirecting them back into it is how a redirect loop starts.
+  if (!error && (await getRecruiter())) {
+    redirect(callbackUrl)
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-surface">

@@ -50,7 +50,8 @@ Because the candidate ID doesn't exist until submit, uploads land in `_drafts/<u
 
 - `src/lib/env.ts` and everything under `src/lib/graph/` import `server-only`. Keep it that way — it turns an accidental client import into a build error instead of a leaked secret.
 - Client components take `CandidateView` (`src/lib/candidate-view.ts`), never `Candidate` — the latter carries the list item id and ETag.
-- **Every server action re-authorizes** via `requireRecruiter()`. `src/middleware.ts` only checks for a session cookie to save a render; it is not the security boundary, and a server action is a public endpoint regardless of which layout rendered it.
+- **Every server action re-authorizes** via `requireRecruiter()`. A server action is a public endpoint regardless of which layout rendered it, so the layout's gate does not cover it.
+- **There is deliberately no middleware.** An earlier cookie-presence check there fought the layout's `auth()` call and produced an infinite redirect, because Auth.js splits a large session token across numbered chunk cookies that an exact-name check misses. Keep one redirect authority, and read sessions only through `auth()` — never by sniffing cookie names.
 - Uploads are validated three times: declared type/size at session creation, draft-folder ownership at submit, and magic-number sniffing of stored bytes at submit (`src/lib/file-signature.ts`). Extension trust alone is not acceptable.
 - Documents are brokered through `/api/recruiter/documents/[candidateId]/[kind]`, which redirects to a short-lived Graph download URL. No SharePoint link is ever rendered into a page.
 

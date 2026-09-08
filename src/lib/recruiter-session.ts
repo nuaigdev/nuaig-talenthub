@@ -20,6 +20,42 @@ export type RecruiterIdentity = {
   displayName: string
 }
 
+/**
+ * Why a caller is not an authorized recruiter.
+ *
+ * "Not signed in" and "signed in but not on the roster" call for completely
+ * different responses — a sign-in prompt versus an admin request — so callers
+ * need to tell them apart rather than lumping both into a denial.
+ */
+export type RecruiterState =
+  | { state: 'anonymous' }
+  | { state: 'unauthorized'; email: string }
+  | { state: 'ok'; recruiter: RecruiterIdentity }
+
+export async function getRecruiterState(): Promise<RecruiterState> {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) return { state: 'anonymous' }
+
+  const record = await findActiveRecruiter(email)
+  if (!record) {
+    logger.warn('Authorized session for a non-active recruiter', {
+      operation: 'recruiter_authorize',
+      category: 'AUTH_DENIED',
+      email,
+    })
+    return { state: 'unauthorized', email }
+  }
+
+  return {
+    state: 'ok',
+    recruiter: {
+      email: record.email,
+      displayName: session?.user?.displayName || record.displayName,
+    },
+  }
+}
+
 export async function getRecruiter(): Promise<RecruiterIdentity | null> {
   const session = await auth()
   const email = session?.user?.email
