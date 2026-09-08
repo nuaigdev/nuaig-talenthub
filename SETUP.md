@@ -48,7 +48,7 @@ Secret ID) immediately — it is shown once. That is `MICROSOFT_CLIENT_SECRET`.
 Set an expiry you will actually track. When it expires, recruiter sign-in and
 every candidate submission stop working at the same moment.
 
-### API permissions — least privilege
+### API permissions
 
 **API permissions → Add a permission → Microsoft Graph.**
 
@@ -56,7 +56,7 @@ every candidate submission stop working at the same moment.
 
 | Permission | Why |
 |---|---|
-| `Sites.Selected` | Read/write the Recruitment site *only*. Grants nothing until bound to that specific site — see SHAREPOINT_SETUP.md §8. |
+| `Sites.ReadWrite.All` | Read/write SharePoint. See the deviation note below. |
 | `Mail.Send` | Send the candidate confirmation email. |
 
 **Delegated permissions** (used by recruiter SSO):
@@ -67,10 +67,23 @@ every candidate submission stop working at the same moment.
 
 Then **Grant admin consent** for the tenant.
 
-Two things to be deliberate about:
+> **Deviation from spec.md §12.** The spec calls for least-privilege
+> `Sites.Selected` bound to the Recruitment site alone. This deployment uses
+> `Sites.ReadWrite.All` instead, at the tenant owner's explicit direction, to
+> avoid the per-site binding step.
+>
+> What that costs: `Sites.ReadWrite.All` grants read/write to **every site
+> collection in the tenant** — every SharePoint site, plus OneDrive for
+> Business, which is architecturally a site collection too — with no signed-in
+> user. The blast radius of a leaked client secret goes from one site to the
+> whole SharePoint estate, which makes secret rotation load-bearing rather than
+> merely good practice.
+>
+> Reverting is a permission swap plus one PnP command, with no code change —
+> see SHAREPOINT_SETUP.md §8. Worth doing before go-live.
 
-- **Do not** add `Sites.ReadWrite.All`. That is tenant-wide access to every
-  SharePoint site, and it is exactly what `Sites.Selected` exists to avoid.
+One thing to be deliberate about:
+
 - `Mail.Send` as an application permission allows sending as *any* mailbox by
   default. Restrict it to the confirmation mailbox with an Exchange application
   access policy:
@@ -218,9 +231,10 @@ The exact callback URL is not on the app registration. It must match including
 scheme, host, port and path.
 
 **Graph returns 403 on every list call**
-The `Sites.Selected` grant (SHAREPOINT_SETUP.md §8) is missing or was applied to
-a different app id. `GET /sites/{site-id}/permissions` shows what is actually
-bound.
+Admin consent was not granted, or was granted against a different app id. The
+app registration should show a green tick beside `Sites.ReadWrite.All`. A 401
+means no consent at all; a 403 means the app is consented but cannot reach that
+particular resource.
 
 **`Field 'X' does not exist`**
 A column's *internal* name does not match. Renaming a column in the SharePoint

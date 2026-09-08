@@ -14,7 +14,7 @@ import { logger } from './logger'
  *     access on their next request, not at token expiry.
  *
  * Graph scopes are intentionally minimal (`openid profile email`). We do *not*
- * request delegated SharePoint scopes: `Sites.Selected` is an application
+ * request delegated SharePoint scopes: the SharePoint grant is an application
  * permission, and §12 requires that recruiters cannot reach SharePoint
  * directly. Every list read and write therefore runs app-only with the
  * recruiter's identity recorded in the append-only audit trail — the fallback

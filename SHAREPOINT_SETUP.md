@@ -230,13 +230,38 @@ Match on `displayName` and copy each `id` (a GUID).
 
 ---
 
-## 8. Grant the app access to this site only
+## 8. Site permissions
 
-The app registration uses `Sites.Selected`, which grants nothing until you
-explicitly bind it to a site. This is the whole point of the permission: the app
-can reach the Recruitment site and no other site in the tenant.
+**This deployment uses `Sites.ReadWrite.All`, so there is nothing to do in this
+section.** Admin consent on the app registration (SETUP.md §1) is sufficient on
+its own — the app can reach every site in the tenant, this one included.
 
-As a Global or SharePoint administrator, run:
+The rest of this section documents the least-privilege alternative the spec
+originally called for. It is kept because reverting is cheap and worth doing
+before go-live.
+
+---
+
+### Reverting to `Sites.Selected`
+
+Swap the permission on the app registration — remove `Sites.ReadWrite.All`, add
+`Sites.Selected`, grant admin consent — then bind the app to this site alone.
+No application code changes either way.
+
+The binding is what makes `Sites.Selected` work: the permission grants nothing
+whatsoever until a site is explicitly named, which is precisely its value.
+
+As a Global or SharePoint administrator, either run the PnP command:
+
+```powershell
+Connect-PnPOnline -Url "https://<tenant>.sharepoint.com/sites/Recruitment" -Interactive
+Grant-PnPAzureADAppSitePermission -AppId "{MICROSOFT_CLIENT_ID}" `
+  -DisplayName "TalentHub" `
+  -Site "https://<tenant>.sharepoint.com/sites/Recruitment" `
+  -Permissions Write
+```
+
+or the equivalent Graph call:
 
 ```http
 POST https://graph.microsoft.com/v1.0/sites/{site-id}/permissions
@@ -266,8 +291,9 @@ creates and updates list items. Do not grant `fullcontrol`.
 A quick end-to-end check before wiring up the app:
 
 1. `GET /sites/{site-id}/lists/{candidates-list-id}/items` returns an empty
-   collection rather than a 403. If it 403s, the `Sites.Selected` grant in §8
-   did not apply to the app you configured in `.env.local`.
+   collection rather than a 403. A 401 means admin consent was never granted; a
+   403 means it was granted against a different app id than the one in
+   `.env.local`.
 2. `GET /sites/{site-id}/drives/{drive-id}/root/children` returns the library
    root.
 3. Submit a test application through the running app and confirm:

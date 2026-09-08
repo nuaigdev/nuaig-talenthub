@@ -8,8 +8,9 @@ import { AppError, type ErrorCategory } from '../errors'
  *
  *   appOnlyClient()   — client-credentials daemon flow. Everything the public
  *                       candidate portal does runs through this, because there
- *                       is no signed-in user to act as. Scoped to the single
- *                       Recruitment site via Sites.Selected.
+ *                       is no signed-in user to act as. How far its SharePoint
+ *                       reach extends is a property of the app registration,
+ *                       not of this code — see SETUP.md.
  *
  *   delegatedClient() — acts as the signed-in recruiter, for reads where their
  *                       own identity should apply.
