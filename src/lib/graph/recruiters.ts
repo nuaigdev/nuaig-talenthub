@@ -19,7 +19,24 @@ export type RecruiterRecord = {
 
 type ListItem = {
   id: string
-  fields?: { Email?: string; DisplayName?: string; Active?: boolean }
+  fields?: { Email?: string; DisplayName?: string; Active?: boolean | string }
+}
+
+/**
+ * Reads the `Active` flag tolerantly.
+ *
+ * A Yes/No column arrives as a boolean, but the same column modelled as a
+ * Choice arrives as the string "Yes"/"No" — and a naive `!== false` check would
+ * read "No" as active, silently defeating the offboarding switch. Anything not
+ * recognised as a negative is treated as active, so a missing column fails open
+ * for the roster rather than locking every recruiter out.
+ */
+function isActive(value: boolean | string | undefined): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    return !['no', 'false', 'inactive', '0', ''].includes(value.trim().toLowerCase())
+  }
+  return true
 }
 
 /**
@@ -53,7 +70,7 @@ async function loadRecruiters(): Promise<Map<string, RecruiterRecord>> {
         byEmail.set(normalise(email), {
           email: normalise(email),
           displayName: item.fields?.DisplayName ?? email,
-          active: item.fields?.Active !== false,
+          active: isActive(item.fields?.Active),
         })
       }
 

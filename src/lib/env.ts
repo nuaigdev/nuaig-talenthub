@@ -64,9 +64,14 @@ export const sharePointEnv = {
   get recruitersListId() {
     return required('SHAREPOINT_RECRUITERS_LIST_ID')
   },
-  /** Library-relative root under which candidate year folders are created. */
+  /**
+   * Optional sub-folder inside the document library that year folders live
+   * under. Defaults to the library root, which matches spec §7.1 when the
+   * library itself is the `Candidates` library. Set this only when candidate
+   * folders sit inside a shared library rather than owning one.
+   */
   get candidatesRoot() {
-    return optional('SHAREPOINT_CANDIDATES_ROOT', 'Candidates')
+    return optional('SHAREPOINT_CANDIDATES_ROOT', '')
   },
 }
 
