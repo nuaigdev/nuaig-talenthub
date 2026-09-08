@@ -132,12 +132,26 @@ export async function activePositions(): Promise<string[]> {
   }
 }
 
-/** Every row, active or not — for the management screen. */
+/**
+ * Every row, active or not — for the management screen.
+ *
+ * Deliberately bypasses the cache. The cache exists to spare the public
+ * application form a Graph round-trip on every page view; the management screen
+ * is low-traffic and must show the truth. Reading it through the cache meant a
+ * recruiter could add a position and not see it, because `invalidate()` only
+ * clears the instance that ran the write, while the re-render could be served
+ * by another instance still holding a warm copy.
+ *
+ * The fresh read also refreshes the cache, so the public form benefits.
+ */
 export async function allPositions(): Promise<PositionRecord[]> {
   if (!listConfigured()) {
     return DEFAULT_POSITIONS.map((title) => ({ itemId: '', title, active: true }))
   }
-  return records()
+
+  const loaded = await load()
+  cache = { at: Date.now(), records: loaded }
+  return loaded
 }
 
 export function positionsListConfigured(): boolean {
@@ -153,7 +167,9 @@ export async function addPosition(title: string): Promise<void> {
   }
 
   const clean = title.trim()
-  const existing = await records()
+  // Fresh read: a cached list could miss a row another recruiter just added,
+  // letting a duplicate through.
+  const existing = await load()
   if (existing.some((p) => p.title.toLowerCase() === clean.toLowerCase())) {
     throw new AppError('VALIDATION_FAILED', `Position already exists: ${clean}`, {
       publicMessage: 'That position already exists.',

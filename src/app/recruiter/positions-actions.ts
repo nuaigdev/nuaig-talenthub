@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireRecruiter } from '@/lib/recruiter-session'
-import { addPosition, setPositionActive } from '@/lib/graph/positions'
+import { addPosition, allPositions, setPositionActive, type PositionRecord } from '@/lib/graph/positions'
 import { publicMessageFor, toAppError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 
@@ -12,12 +12,21 @@ import { logger } from '@/lib/logger'
  * Like every server action these re-authorize from scratch — a server action is
  * a public endpoint whatever rendered it (§12).
  *
+ * Both actions return the list as it stands *after* the write, so the screen
+ * updates from the write's own result. Relying on `revalidatePath` alone was
+ * not enough: the re-render can be served by a different instance, and the
+ * recruiter would be left looking at a stale table until a hard refresh.
+ * `revalidatePath` is still called so the server-rendered copy agrees on the
+ * next navigation.
+ *
  * Positions are deactivated, never deleted. A candidate who applied for a role
  * keeps that role on their record, so removing the row would leave their
  * history referring to something that no longer exists.
  */
 
-export type PositionActionResult = { ok: true } | { ok: false; error: string }
+export type PositionActionResult =
+  | { ok: true; positions: PositionRecord[] }
+  | { ok: false; error: string }
 
 export async function addPositionAction(formData: FormData): Promise<PositionActionResult> {
   try {
@@ -36,7 +45,7 @@ export async function addPositionAction(formData: FormData): Promise<PositionAct
     })
 
     revalidatePath('/recruiter/positions')
-    return { ok: true }
+    return { ok: true, positions: await allPositions() }
   } catch (error) {
     const appError = toAppError(error, 'GRAPH_UNAVAILABLE')
     logger.error('Failed to add position', appError, {
@@ -63,7 +72,7 @@ export async function setPositionActiveAction(
     })
 
     revalidatePath('/recruiter/positions')
-    return { ok: true }
+    return { ok: true, positions: await allPositions() }
   } catch (error) {
     const appError = toAppError(error, 'GRAPH_UNAVAILABLE')
     logger.error('Failed to change position availability', appError, {

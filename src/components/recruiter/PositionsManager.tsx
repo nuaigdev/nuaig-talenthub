@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { Alert, Button, Card, Input, Spinner } from '@/components/ui'
 import type { PositionRecord } from '@/lib/graph/positions'
 import { addPositionAction, setPositionActiveAction } from '@/app/recruiter/positions-actions'
@@ -13,7 +13,7 @@ import { addPositionAction, setPositionActiveAction } from '@/app/recruiter/posi
  * of everyone who already applied for it.
  */
 export function PositionsManager({
-  positions,
+  positions: initialPositions,
   configured,
 }: {
   positions: PositionRecord[]
@@ -23,6 +23,17 @@ export function PositionsManager({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
+
+  // The table renders from local state, updated with the list each action
+  // returns. Waiting on a route refresh was the bug: the re-render can be
+  // served by an instance whose cache still holds the old rows.
+  const [positions, setPositions] = useState(initialPositions)
+
+  // Stay in step when the server re-renders this route — navigation, or a
+  // refresh triggered by revalidatePath.
+  useEffect(() => {
+    setPositions(initialPositions)
+  }, [initialPositions])
 
   function add(event: React.FormEvent) {
     event.preventDefault()
@@ -34,8 +45,12 @@ export function PositionsManager({
 
     startTransition(async () => {
       const result = await addPositionAction(formData)
-      if (result.ok) setTitle('')
-      else setError(result.error)
+      if (result.ok) {
+        setTitle('')
+        setPositions(result.positions)
+      } else {
+        setError(result.error)
+      }
     })
   }
 
@@ -43,7 +58,8 @@ export function PositionsManager({
     setError(null)
     startTransition(async () => {
       const result = await setPositionActiveAction(record.itemId, !record.active)
-      if (!result.ok) setError(result.error)
+      if (result.ok) setPositions(result.positions)
+      else setError(result.error)
     })
   }
 
