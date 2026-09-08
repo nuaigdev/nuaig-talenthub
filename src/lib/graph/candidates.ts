@@ -264,7 +264,13 @@ export async function createCandidate(input: NewCandidate): Promise<Candidate> {
         Email: input.email.toLowerCase(),
         Phone: input.phone,
         Location: input.location,
-        LinkedIn: input.linkedIn ? { Url: input.linkedIn, Description: 'LinkedIn' } : null,
+        // These three are written as plain strings, not Hyperlink
+        // `{Url, Description}` objects. SharePoint's URL column type is not
+        // reliably writable through Graph — it rejects every value shape, on
+        // both POST and PATCH — so the setup guide specifies plain text columns
+        // and stores the webUrl as a string. `hyperlink()` on the read side
+        // still accepts either shape, so a real URL column would also work.
+        LinkedIn: input.linkedIn,
         Position: input.position,
         YearsExperience: input.yearsExperience,
         CurrentCompany: input.currentCompany,
@@ -272,8 +278,8 @@ export async function createCandidate(input: NewCandidate): Promise<Candidate> {
         CurrentCTC: input.currentCTC,
         ExpectedCTC: input.expectedCTC,
         NoticePeriod: input.noticePeriod,
-        ResumeURL: { Url: input.resumeUrl, Description: 'Resume' },
-        VideoURL: { Url: input.videoUrl, Description: 'Introduction video' },
+        ResumeURL: input.resumeUrl,
+        VideoURL: input.videoUrl,
         ApplicationDate: input.applicationDate,
         Status: 'New',
         RecruiterNotesJSON: '[]',

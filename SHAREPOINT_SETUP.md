@@ -61,7 +61,7 @@ column created with a different name keeps the original internal name forever).
 | `Email` | Single line of text | Stored lower-cased. **Index this column.** |
 | `Phone` | Single line of text | |
 | `Location` | Single line of text | |
-| `LinkedIn` | Hyperlink | Optional |
+| `LinkedIn` | Single line of text | Optional. **Not** Hyperlink — see the note below. |
 | `Position` | Choice | The 8 options in §4 below. **Index this column.** |
 | `YearsExperience` | Number | Allow decimals |
 | `CurrentCompany` | Single line of text | Optional |
@@ -69,13 +69,34 @@ column created with a different name keeps the original internal name forever).
 | `CurrentCTC` | Single line of text | Free text — currency varies |
 | `ExpectedCTC` | Single line of text | Free text |
 | `NoticePeriod` | Choice | The 7 options in §4 below |
-| `ResumeURL` | Hyperlink | Graph `webUrl` of the stored resume |
-| `VideoURL` | Hyperlink | Graph `webUrl` of the stored video |
+| `ResumeURL` | Single line of text | Graph `webUrl` of the stored resume. **Not** Hyperlink. |
+| `VideoURL` | Single line of text | Graph `webUrl` of the stored video. **Not** Hyperlink. |
 | `ApplicationDate` | Date and time | Include time. **Index this column.** |
 | `Status` | Choice | The 9 options in §4 below. Default `New`. **Index this column.** |
 | `RecruiterNotesJSON` | Multiple lines of text | **Plain text**, not rich text. Append-only JSON array. |
 | `StatusHistoryJSON` | Multiple lines of text | **Plain text**, not rich text. Append-only JSON array. |
 | `MatchScore` | Number | Leave empty and unused. Reserved for a future AI pass (spec §11). |
+
+### Why the three URL columns are text, not Hyperlink
+
+`spec.md` §7.2 specifies Hyperlink for `LinkedIn`, `ResumeURL` and `VideoURL`.
+Use **Single line of text** instead.
+
+SharePoint's URL column type is not reliably writable through the Graph list
+items API. Against a live tenant it rejected every value shape — a plain string,
+`{Url, Description}`, `{url, description}`, `{Url}` alone — on both item create
+and field patch, always with an unhelpful `400 invalidRequest: Invalid request`.
+Graph also refuses to *create* such a column. A URL column therefore fails the
+submission at the final step, after the files have already been uploaded.
+
+Nothing is lost by using text. The stored value is the same `webUrl` string, and
+nobody clicks it from inside SharePoint: recruiters open documents through the
+app, which brokers a short-lived link (§10.2), and §12 requires that they cannot
+browse the library directly.
+
+The read path (`hyperlink()` in `src/lib/graph/candidates.ts`) still accepts
+either a string or a `{Url}` object, so a real URL column would work if a future
+Graph release makes it writable.
 
 ### Why the indexes matter
 

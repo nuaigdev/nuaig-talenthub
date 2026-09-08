@@ -1,6 +1,6 @@
 import 'server-only'
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { appOnlyClient, isNotFound, wrapGraphError } from './client'
+import { appOnlyClient, getAppOnlyToken, isNotFound, wrapGraphError } from './client'
 import { sharePointEnv } from '../env'
 import { AppError } from '../errors'
 import { encodeGraphPath } from '../sanitize'
@@ -240,22 +240,36 @@ export async function tryDeleteItem(itemId: string): Promise<boolean> {
  */
 export async function getDownloadUrl(itemId: string): Promise<string> {
   const client = appOnlyClient()
-  try {
-    const item = (await client
-      .api(driveApi(`/items/${itemId}`))
-      .select('id,name,@microsoft.graph.downloadUrl')
-      .get()) as DriveItem
 
+  try {
+    // Deliberately unprojected. `@microsoft.graph.downloadUrl` is an instance
+    // annotation, not a field, and Graph drops it as soon as $select narrows
+    // the response — asking for it by name is precisely how you lose it.
+    const item = (await client.api(driveApi(`/items/${itemId}`)).get()) as DriveItem
     const url = item['@microsoft.graph.downloadUrl']
-    if (!url) {
-      throw new AppError('GRAPH_UNAVAILABLE', 'Graph returned no download URL', {
-        context: { itemId },
-      })
-    }
-    return url
+    if (url) return url
   } catch (error) {
     throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'mint download URL')
   }
+
+  // Fallback for the cases where Graph still withholds the annotation: the
+  // content endpoint answers with a 302 to the same short-lived URL.
+  try {
+    const token = await getAppOnlyToken()
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${sharePointEnv.driveId}/items/${itemId}/content`,
+      { headers: { Authorization: `Bearer ${token}` }, redirect: 'manual', cache: 'no-store' },
+    )
+
+    const location = response.headers.get('location')
+    if (location) return location
+  } catch (error) {
+    throw wrapGraphError(error, 'GRAPH_UNAVAILABLE', 'mint download URL via content redirect')
+  }
+
+  throw new AppError('GRAPH_UNAVAILABLE', 'Graph returned no download URL', {
+    context: { itemId },
+  })
 }
 
 /**
