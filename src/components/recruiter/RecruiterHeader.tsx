@@ -51,7 +51,9 @@ export function RecruiterHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
+      {/* Full-bleed: the header spans the viewport and the logo sits hard left,
+          rather than being pulled inward by a centred content container. */}
+      <div className="flex h-16 w-full items-center gap-6 px-4 sm:px-6">
         <Logo href="/recruiter" />
 
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">

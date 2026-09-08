@@ -161,7 +161,7 @@ export function ApplyWizard({ limits }: { limits: UploadLimits }) {
     <>
       <StepIndicator current={step} />
 
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold text-ink">{APPLY_STEPS[step]}</h1>
           <p className="mt-1 text-sm text-secondary">{STEP_BLURBS[step]}</p>

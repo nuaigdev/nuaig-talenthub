@@ -48,7 +48,7 @@ export function FilterBar({ basePath }: { basePath: string }) {
 
   return (
     <div className="border-b border-border bg-surface">
-      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+      <div className="w-full px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <form
             className="flex items-end gap-2"

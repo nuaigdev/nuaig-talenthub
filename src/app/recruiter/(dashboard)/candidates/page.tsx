@@ -34,7 +34,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: S
       <>
         <FilterBar basePath="/recruiter/candidates" />
 
-        <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+        <div className="w-full space-y-6 px-4 py-6 sm:px-6">
           <div>
             <h1 className="text-xl font-semibold text-ink">Candidates</h1>
             <p className="mt-0.5 text-sm text-secondary">
@@ -58,7 +58,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: S
     })
 
     return (
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <div className="w-full max-w-3xl px-4 py-12 sm:px-6">
         <Alert tone="error" title="Could not load candidates">
           {publicMessageFor(appError)}
         </Alert>

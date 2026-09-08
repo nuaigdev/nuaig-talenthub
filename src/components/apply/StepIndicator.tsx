@@ -12,7 +12,7 @@ import { APPLY_STEPS } from '@/lib/constants'
 export function StepIndicator({ current }: { current: number }) {
   return (
     <nav aria-label="Application progress" className="border-b border-border bg-surface">
-      <div className="mx-auto max-w-3xl px-4 py-3 sm:px-6">
+      <div className="w-full px-4 py-3 sm:px-6">
         <p className="text-xs font-medium text-secondary sm:hidden">
           Step {current + 1} of {APPLY_STEPS.length} — {APPLY_STEPS[current]}
         </p>

@@ -11,7 +11,8 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+        {/* Full-bleed, matching the recruiter header — logo hard left. */}
+        <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6">
           <Logo href="/apply" />
           {contactAddress && (
             <a
@@ -29,7 +30,7 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
       </main>
 
       <footer className="border-t border-border py-6">
-        <p className="mx-auto max-w-5xl px-4 text-xs text-muted sm:px-6">
+        <p className="w-full px-4 text-xs text-muted sm:px-6">
           Your information is used for recruitment purposes only.
         </p>
       </footer>

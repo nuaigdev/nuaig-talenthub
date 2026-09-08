@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { Logo } from '@/components/brand/Logo'
-import { Alert, Button, Card } from '@/components/ui'
+import { MicrosoftMark } from '@/components/brand/MicrosoftMark'
+import { Alert, Card } from '@/components/ui'
 import { signIn } from '@/lib/auth'
 import { getRecruiter } from '@/lib/recruiter-session'
 
@@ -36,7 +37,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-5xl items-center px-4 sm:px-6">
+        <div className="flex h-16 w-full items-center px-4 sm:px-6">
           <Logo href="/recruiter" />
         </div>
       </header>
@@ -63,9 +64,17 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
               await signIn('microsoft-entra-id', { redirectTo: callbackUrl })
             }}
           >
-            <Button type="submit" className="w-full">
+            {/* Microsoft's own sign-in button convention: their mark on a plain
+                surface, not our brand colour. Recruiters recognise this shape as
+                "sign in with your work account", which a blue button does not
+                communicate. */}
+            <button
+              type="submit"
+              className="flex h-11 w-full items-center justify-center gap-3 rounded-md border border-border-strong bg-white text-sm font-medium text-ink transition-colors hover:border-brand hover:bg-surface"
+            >
+              <MicrosoftMark />
               Sign in with Microsoft
-            </Button>
+            </button>
           </form>
 
           <p className="mt-5 text-xs text-muted">
