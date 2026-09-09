@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireRecruiter } from '@/lib/recruiter-session'
-import { appendNote, changeStatus } from '@/lib/graph/candidates'
-import { noteSchema, statusChangeSchema } from '@/lib/validation'
+import { appendNote, changeStatus, updateCandidateDetails } from '@/lib/graph/candidates'
+import { candidateEditSchema, fieldErrors, noteSchema, statusChangeSchema } from '@/lib/validation'
+import { isOfferedPosition } from '@/lib/graph/positions'
 import { publicMessageFor, toAppError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 
@@ -49,6 +50,67 @@ export async function addNoteAction(
     const appError = toAppError(error, 'GRAPH_UNAVAILABLE')
     logger.error('Failed to add recruiter note', appError, {
       operation: 'add_note',
+      category: appError.category,
+      candidateId,
+    })
+    return { ok: false, error: publicMessageFor(appError) }
+  }
+}
+
+/**
+ * Corrects a candidate's own details, for when they tell us they mistyped
+ * something. Re-validated against the same schema the public form uses, so a
+ * recruiter cannot save a shape the application itself would have rejected.
+ */
+export async function updateCandidateAction(
+  candidateId: string,
+  values: Record<string, string>,
+): Promise<ActionResult & { fields?: Record<string, string> }> {
+  try {
+    const recruiter = await requireRecruiter()
+
+    const parsed = candidateEditSchema.safeParse({
+      ...values,
+      yearsExperience:
+        values.yearsExperience === '' ? Number.NaN : Number(values.yearsExperience),
+      relevantExperience:
+        values.relevantExperience === '' ? Number.NaN : Number(values.relevantExperience),
+    })
+
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: 'Some of these details are not valid. Please check the highlighted fields.',
+        fields: fieldErrors(parsed.error),
+      }
+    }
+
+    // A recruiter may only set a position that is actually on offer, same as a
+    // candidate — otherwise the dashboard filter would have an orphan value.
+    const details = parsed.data as Record<string, string | number>
+    if (!(await isOfferedPosition(String(details.position)))) {
+      return { ok: false, error: 'That position is not currently open.' }
+    }
+
+    const { changed } = await updateCandidateDetails(candidateId, details, {
+      name: recruiter.displayName,
+      email: recruiter.email,
+    })
+
+    logger.info('Candidate details corrected', {
+      operation: 'update_candidate',
+      candidateId,
+      changed,
+      actor: recruiter.email,
+    })
+
+    revalidatePath(`/recruiter/candidates/${candidateId}`)
+    revalidatePath('/recruiter')
+    return { ok: true }
+  } catch (error) {
+    const appError = toAppError(error, 'GRAPH_UNAVAILABLE')
+    logger.error('Failed to update candidate details', appError, {
+      operation: 'update_candidate',
       category: appError.category,
       candidateId,
     })

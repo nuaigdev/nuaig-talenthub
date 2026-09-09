@@ -616,6 +616,119 @@ async function patchWithRetry(
   })
 }
 
+/** App field name → SharePoint column, for the fields a recruiter may correct. */
+const EDITABLE_COLUMNS: Record<string, string> = {
+  fullName: 'FullName',
+  email: 'Email',
+  phone: 'Phone',
+  location: 'Location',
+  willingToRelocate: 'WillingToRelocate',
+  linkedIn: 'LinkedIn',
+  position: 'Position',
+  yearsExperience: 'YearsExperience',
+  relevantExperience: 'RelevantExperience',
+  currentlyEmployed: 'CurrentlyEmployed',
+  currentCompany: 'CurrentCompany',
+  currentJobTitle: 'CurrentJobTitle',
+  currentCTC: 'CurrentCTC',
+  variableComponent: 'VariableComponent',
+  expectedCTC: 'ExpectedCTC',
+  ctcNegotiable: 'CTCNegotiable',
+  noticePeriod: 'NoticePeriod',
+  noticePeriodNegotiable: 'NoticePeriodNegotiable',
+  highestQualification: 'HighestQualification',
+  undergraduateCollege: 'UndergraduateCollege',
+  undergraduateCGPA: 'UndergraduateCGPA',
+  postgraduateCollege: 'PostgraduateCollege',
+  postgraduateCGPA: 'PostgraduateCGPA',
+  certifications: 'Certifications',
+  agencyCode: 'AgencyCode',
+}
+
+/** Human labels for the edit note, so the audit trail reads like prose. */
+const EDITABLE_LABELS: Record<string, string> = {
+  fullName: 'Full name',
+  email: 'Email',
+  phone: 'Phone',
+  location: 'Location',
+  willingToRelocate: 'Willing to relocate',
+  linkedIn: 'LinkedIn',
+  position: 'Position',
+  yearsExperience: 'Total experience',
+  relevantExperience: 'Relevant experience',
+  currentlyEmployed: 'Currently employed',
+  currentCompany: 'Current organisation',
+  currentJobTitle: 'Current job title',
+  currentCTC: 'Current CTC',
+  variableComponent: 'Variable component',
+  expectedCTC: 'Expected CTC',
+  ctcNegotiable: 'Expected CTC negotiable',
+  noticePeriod: 'Notice period',
+  noticePeriodNegotiable: 'Notice period negotiable',
+  highestQualification: 'Highest qualification',
+  undergraduateCollege: 'Undergraduate college',
+  undergraduateCGPA: 'Undergraduate CGPA',
+  postgraduateCollege: 'Postgraduate college',
+  postgraduateCGPA: 'Postgraduate CGPA',
+  certifications: 'Certifications',
+  agencyCode: 'Agency code',
+}
+
+/**
+ * Corrects a candidate's details on their behalf (a mistyped email, a wrong
+ * CTC). Unlike notes and status, these fields *are* meant to be overwritten —
+ * the point is to fix a mistake, not to accumulate versions.
+ *
+ * What is preserved instead is a record that the edit happened: every change is
+ * appended to the recruiter notes as a system entry naming the fields and the
+ * old values. That reuses the existing audit surface rather than adding a
+ * column, and it shows up in the timeline a recruiter already reads.
+ *
+ * Only fields whose value actually differs are written, so an accidental save
+ * with nothing changed is a no-op rather than a misleading audit entry.
+ */
+export async function updateCandidateDetails(
+  candidateId: string,
+  input: Record<string, string | number>,
+  author: { name: string; email: string },
+): Promise<{ candidate: Candidate; changed: string[] }> {
+  let changed: string[] = []
+
+  const candidate = await patchWithRetry(candidateId, 'update candidate details', (current) => {
+    const record = current as unknown as Record<string, string | number>
+    const patch: Record<string, unknown> = {}
+    const summaries: string[] = []
+    changed = []
+
+    for (const [field, column] of Object.entries(EDITABLE_COLUMNS)) {
+      if (!(field in input)) continue
+
+      const next = input[field]
+      const previous = record[field]
+      if (String(previous ?? '') === String(next ?? '')) continue
+
+      patch[column] = next
+      changed.push(field)
+      const label = EDITABLE_LABELS[field] ?? field
+      summaries.push(`${label}: "${previous ?? ''}" → "${next ?? ''}"`)
+    }
+
+    if (!changed.length) return {}
+
+    const entry: NoteEntry = {
+      author: author.name,
+      authorEmail: author.email,
+      timestamp: new Date().toISOString(),
+      text: `Details corrected by ${author.name}:\n${summaries.join('\n')}`,
+    }
+    patch.RecruiterNotesJSON = JSON.stringify([...current.notes, entry])
+
+    return patch
+  })
+
+  return { candidate, changed }
+}
+
 export async function appendNote(
   candidateId: string,
   note: Omit<NoteEntry, 'timestamp'>,

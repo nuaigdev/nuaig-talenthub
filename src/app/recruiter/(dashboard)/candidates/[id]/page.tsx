@@ -8,6 +8,8 @@ import { Card, StatusBadge } from '@/components/ui'
 import { StatusControl } from '@/components/recruiter/StatusControl'
 import { NotesPanel } from '@/components/recruiter/NotesPanel'
 import { DocumentViewer } from '@/components/recruiter/DocumentViewer'
+import { CandidateEditor } from '@/components/recruiter/CandidateEditor'
+import { activePositions } from '@/lib/graph/positions'
 
 /**
  * Candidate detail (spec.md §10.2).
@@ -30,7 +32,10 @@ export default async function CandidateDetailPage({ params }: { params: Params }
   await requireRecruiter()
 
   const { id } = await params
-  const record = await getCandidateByCandidateId(decodeURIComponent(id))
+  const [record, positions] = await Promise.all([
+    getCandidateByCandidateId(decodeURIComponent(id)),
+    activePositions(),
+  ])
   if (!record) notFound()
 
   const candidate = toView(record)
@@ -55,7 +60,10 @@ export default async function CandidateDetailPage({ params }: { params: Params }
             <span>Applied {formatDate(candidate.applicationDate)}</span>
           </p>
         </div>
-        <StatusBadge status={candidate.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={candidate.status} />
+          <CandidateEditor candidate={candidate} positions={positions} />
+        </div>
       </header>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
