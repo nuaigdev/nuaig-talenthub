@@ -180,7 +180,20 @@ export async function POST(request: Request) {
       candidateId,
       fullName: input.fullName,
       email: input.email,
+      phone: input.phone,
+      location: input.location,
+      linkedIn: input.linkedIn,
       position: input.position,
+      yearsExperience: input.yearsExperience,
+      relevantExperience: input.relevantExperience,
+      currentCTC: input.currentCTC,
+      expectedCTC: input.expectedCTC,
+      noticePeriod: input.noticePeriod,
+      applicationDate: now.toISOString(),
+      // File sizes, not names: storage names are normalised, so echoing them
+      // back would show the candidate a filename they never chose.
+      resumeBytes: input.resume.size,
+      videoBytes: input.video.size,
     })
 
     // 8. The candidate gets their ID and nothing else — no SharePoint URL, no
