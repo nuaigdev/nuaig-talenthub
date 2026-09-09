@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HIGHEST_QUALIFICATIONS, HOME_CITY, NOTICE_PERIODS, STATUSES, YES_NO } from './constants'
+import { HIGHEST_QUALIFICATIONS, HOME_CITY, NOTICE_PERIODS, YES_NO, isStatus } from './constants'
 
 /**
  * One schema set, used in two places:
@@ -219,7 +219,9 @@ export const noteSchema = z.object({
 })
 
 export const statusChangeSchema = z.object({
-  status: z.enum(STATUSES, { errorMap: () => ({ message: 'Unknown status' }) }),
+  // Checked against the composite vocabulary rather than a Zod enum, because
+  // the valid set is derived from stages × levels in one place (`constants.ts`).
+  status: requiredText('Status', 60).refine(isStatus, { message: 'Unknown status' }),
 })
 
 /** Flattens a ZodError into `{ field: message }` for inline form rendering. */

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { Button, Input, Select, Spinner } from '@/components/ui'
-import { STATUSES } from '@/lib/constants'
+import { STATUS_STAGES } from '@/lib/constants'
 
 /**
  * Filter bar, sitting directly under the header (spec.md §10.1) — explicitly
@@ -112,7 +112,10 @@ export function FilterBar({
               className="w-40"
             >
               <option value="all">All statuses</option>
-              {STATUSES.map((option) => (
+              {/* Stages, not every round: filtering by Interview should show
+                  L1, L2 and L3 together. The Graph filter turns a levelled
+                  stage into a prefix match. */}
+              {STATUS_STAGES.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>

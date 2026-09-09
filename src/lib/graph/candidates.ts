@@ -3,7 +3,14 @@ import type { Client } from '@microsoft/microsoft-graph-client'
 import { appOnlyClient, isPreconditionFailed, wrapGraphError } from './client'
 import { policyEnv, sharePointEnv } from '../env'
 import { AppError } from '../errors'
-import { DASHBOARD_PAGE_SIZE, type CandidateStatus, type NoticePeriod, type Position } from '../constants'
+import {
+  DASHBOARD_PAGE_SIZE,
+  parseStatus,
+  stageTakesLevel,
+  type CandidateStatus,
+  type NoticePeriod,
+  type Position,
+} from '../constants'
 
 /**
  * The `Candidates` SharePoint list is the system of record (spec.md §7.2).
@@ -429,7 +436,15 @@ function buildFilter(query: CandidateQuery): string | null {
     clauses.push(`fields/Position eq '${odata(query.position)}'`)
   }
   if (query.status && query.status !== 'all') {
-    clauses.push(`fields/Status eq '${odata(query.status)}'`)
+    // A status is stored as "stage" or "stage L2". Filtering by a levelled
+    // stage matches every round under it, which is what a recruiter means by
+    // "show me everyone at interview". No stage name prefixes another, so a
+    // prefix match cannot bleed across stages.
+    clauses.push(
+      stageTakesLevel(query.status)
+        ? `startswith(fields/Status,'${odata(query.status)}')`
+        : `fields/Status eq '${odata(query.status)}'`,
+    )
   }
   if (query.from) {
     clauses.push(`fields/ApplicationDate ge '${new Date(query.from).toISOString()}'`)
@@ -531,8 +546,10 @@ export async function countByStatus(): Promise<{
     for (let page = 0; page < COUNT_MAX_PAGES; page += 1) {
       const response = await request.get()
       for (const item of (response.value ?? []) as ListItem[]) {
-        const status = item.fields?.Status ?? 'New'
-        counts[status] = (counts[status] ?? 0) + 1
+        // Tallied by stage, not by exact status: an "Interview" tile should
+        // count L1, L2 and L3 together.
+        const { stage } = parseStatus(item.fields?.Status ?? 'New')
+        counts[stage] = (counts[stage] ?? 0) + 1
         total += 1
       }
 

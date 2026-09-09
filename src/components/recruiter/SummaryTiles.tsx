@@ -1,11 +1,13 @@
 import Link from 'next/link'
-import { STATUS_COLORS, SUMMARY_STATUSES } from '@/lib/constants'
+import { STATUS_COLORS, SUMMARY_STAGES } from '@/lib/constants'
 
 /**
  * Dashboard summary tiles (spec.md §10.1).
  *
- * Each tile links into the table pre-filtered to that status, so the number is
- * a way in rather than just a readout.
+ * Each tile links into the table pre-filtered to that stage, so the number is a
+ * way in rather than just a readout. A stage tile counts every round within it —
+ * "Interview" is L1 plus L2 plus L3, which is what a recruiter scanning the
+ * pipeline actually wants to know.
  */
 export function SummaryTiles({
   counts,
@@ -20,7 +22,7 @@ export function SummaryTiles({
     <section aria-label="Candidate summary" className="space-y-2">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <Tile label="Total" value={total} href="/recruiter" accent="var(--color-ink)" />
-        {SUMMARY_STATUSES.map((status) => (
+        {SUMMARY_STAGES.map((status) => (
           <Tile
             key={status}
             label={status}

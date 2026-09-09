@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { forwardRef, type ReactNode } from 'react'
-import { STATUS_COLORS, type CandidateStatus } from '@/lib/constants'
+import { statusColor, type CandidateStatus } from '@/lib/constants'
 
 /**
  * Shared primitives. Every visual value here traces to a token in globals.css
@@ -175,7 +175,9 @@ export function Card({ className, children }: { className?: string; children: Re
  * text and dot of the same hue (spec.md §5.3).
  */
 export function StatusBadge({ status }: { status: CandidateStatus }) {
-  const hex = STATUS_COLORS[status] ?? STATUS_COLORS.New
+  // Colour comes from the stage, so every round of a stage reads as the same
+  // kind of thing; the label still shows the round.
+  const hex = statusColor(status)
   return (
     <span
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium"

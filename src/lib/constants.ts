@@ -59,7 +59,17 @@ export const NOTICE_PERIODS = [
 
 export type NoticePeriod = (typeof NOTICE_PERIODS)[number]
 
-export const STATUSES = [
+/**
+ * The pipeline, as stage plus optional round.
+ *
+ * Interview, Selected and Rejected happen at a specific round, so they carry a
+ * level; the rest are single points and do not. Rather than model that as a
+ * second column, a status is stored as one composite string — "Interview L2" —
+ * which keeps `Status` a single readable value in SharePoint, keeps the
+ * append-only history log honest, and lets a stage filter match every round
+ * under it with a prefix match.
+ */
+export const STATUS_STAGES = [
   'New',
   'Screening',
   'Shortlisted',
@@ -71,10 +81,51 @@ export const STATUSES = [
   'On Hold',
 ] as const
 
-export type CandidateStatus = (typeof STATUSES)[number]
+export type StatusStage = (typeof STATUS_STAGES)[number]
 
-/** spec.md §5.3 — one hex per status, rendered as a ~12% tinted pill. */
-export const STATUS_COLORS: Record<CandidateStatus, string> = {
+/** Stages that happen at a round, and so take an L1/L2/L3 suffix. */
+export const LEVELLED_STAGES = ['Interview', 'Selected', 'Rejected'] as const
+
+export const STATUS_LEVELS = ['L1', 'L2', 'L3'] as const
+
+export type StatusLevel = (typeof STATUS_LEVELS)[number]
+
+export function stageTakesLevel(stage: string): boolean {
+  return (LEVELLED_STAGES as readonly string[]).includes(stage)
+}
+
+export function formatStatus(stage: string, level?: string | null): string {
+  return stageTakesLevel(stage) && level ? `${stage} ${level}` : stage
+}
+
+/** Splits a stored status back into its parts. Unknown values fall back to New. */
+export function parseStatus(value: string): { stage: StatusStage; level: StatusLevel | null } {
+  const trimmed = (value ?? '').trim()
+
+  for (const stage of STATUS_STAGES) {
+    if (trimmed === stage) return { stage, level: null }
+    if (stageTakesLevel(stage) && trimmed.startsWith(`${stage} `)) {
+      const suffix = trimmed.slice(stage.length + 1).trim()
+      if ((STATUS_LEVELS as readonly string[]).includes(suffix)) {
+        return { stage, level: suffix as StatusLevel }
+      }
+    }
+  }
+
+  return { stage: 'New', level: null }
+}
+
+/** Every value the app will write — the exact vocabulary for the SharePoint column. */
+export const STATUSES: string[] = STATUS_STAGES.flatMap((stage) =>
+  stageTakesLevel(stage) ? STATUS_LEVELS.map((level) => `${stage} ${level}`) : [stage],
+)
+
+/** A status is a composite string, not a closed union. Parse it, don't switch on it. */
+export type CandidateStatus = string
+
+/** One hex per stage (spec.md §5.3). Rounds share their stage colour — the
+ * level is a position within a stage, not a different kind of thing. */
+export const STATUS_COLORS: Record<StatusStage, string> = {
   New: '#069BDF',
   Screening: '#6B7280',
   Shortlisted: '#6366F1',
@@ -86,8 +137,8 @@ export const STATUS_COLORS: Record<CandidateStatus, string> = {
   'On Hold': '#9CA3AF',
 }
 
-/** Statuses surfaced as summary tiles on the dashboard (spec.md §10.1). */
-export const SUMMARY_STATUSES: CandidateStatus[] = [
+/** Stages surfaced as dashboard tiles. Tiles count every round in the stage. */
+export const SUMMARY_STAGES: StatusStage[] = [
   'New',
   'Screening',
   'Shortlisted',
@@ -147,6 +198,11 @@ export const CONSENT_TEXT =
 export const VIDEO_INSTRUCTIONS =
   "Please upload a 2–4 minute introduction video. Tell us your name, current role, key experience and why you're interested in this position."
 
-export function isStatus(value: string): value is CandidateStatus {
-  return (STATUSES as readonly string[]).includes(value)
+export function isStatus(value: string): boolean {
+  return STATUSES.includes(value)
+}
+
+/** Colour for a stored status, whatever round it names. */
+export function statusColor(value: string): string {
+  return STATUS_COLORS[parseStatus(value).stage]
 }

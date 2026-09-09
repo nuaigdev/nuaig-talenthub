@@ -2,7 +2,14 @@
 
 import { useState, useTransition } from 'react'
 import { Alert, Select, Spinner, StatusBadge } from '@/components/ui'
-import { STATUSES, type CandidateStatus } from '@/lib/constants'
+import {
+  STATUS_LEVELS,
+  STATUS_STAGES,
+  formatStatus,
+  parseStatus,
+  stageTakesLevel,
+  type CandidateStatus,
+} from '@/lib/constants'
 import { formatDateTime } from '@/lib/candidate-view'
 import type { StatusHistoryEntry } from '@/lib/graph/candidates'
 import { changeStatusAction } from '@/app/recruiter/actions'
@@ -26,6 +33,8 @@ export function StatusControl({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [optimistic, setOptimistic] = useState(status)
+
+  const current = parseStatus(optimistic)
 
   function onChange(next: string) {
     const value = next as CandidateStatus
@@ -54,22 +63,55 @@ export function StatusControl({
         {pending && <Spinner className="text-brand" />}
       </div>
 
-      <div>
-        <label htmlFor="status-select" className="sr-only">
-          Change candidate status
-        </label>
-        <Select
-          id="status-select"
-          value={optimistic}
-          disabled={pending}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          {STATUSES.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </Select>
+      {/* Stage and round are separate controls because they are separate
+          decisions — "they reached interview" and "which round" — even though
+          they are stored as one composite value. A flat list of every
+          combination would be fifteen options to scan for two clicks. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor="status-stage" className="mb-1 block text-xs font-medium text-secondary">
+            Stage
+          </label>
+          <Select
+            id="status-stage"
+            value={current.stage}
+            disabled={pending}
+            onChange={(event) => {
+              const stage = event.target.value
+              // Moving into a levelled stage starts at L1 rather than leaving
+              // the round blank, which would not be a valid status.
+              onChange(formatStatus(stage, stageTakesLevel(stage) ? current.level ?? 'L1' : null))
+            }}
+          >
+            {STATUS_STAGES.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <label htmlFor="status-level" className="mb-1 block text-xs font-medium text-secondary">
+            Round
+          </label>
+          <Select
+            id="status-level"
+            value={current.level ?? ''}
+            disabled={pending || !stageTakesLevel(current.stage)}
+            onChange={(event) => onChange(formatStatus(current.stage, event.target.value))}
+          >
+            {stageTakesLevel(current.stage) ? (
+              STATUS_LEVELS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))
+            ) : (
+              <option value="">Not applicable</option>
+            )}
+          </Select>
+        </div>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
