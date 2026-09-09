@@ -42,6 +42,10 @@ Because the candidate ID doesn't exist until submit, uploads land in `_drafts/<u
 
 **Nothing is ever overwritten.** Notes and status changes are append-only JSON logs on the list item. `patchWithRetry` in `src/lib/graph/candidates.ts` re-reads and re-applies the mutation on 412 — that re-run is what makes concurrent notes additive rather than last-write-wins. Preserve that shape when adding writes.
 
+**Statuses are stage + optional round, stored as one composite string** (`Interview L2`). `parseStatus`/`formatStatus` in `constants.ts` are the only places that know the shape — parse a status, never switch on it. Interview, Selected and Rejected take an L1-L3 round; the rest do not. A stage filter becomes a prefix match, which is safe only because no stage name prefixes another; keep it that way when adding stages. Dashboard tiles and badge colours key off the stage.
+
+**Recruiters can correct candidate details** (`updateCandidateDetails`). These fields *are* meant to be overwritten — unlike notes and status — but each edit appends a note naming the fields changed and their old values, so the audit trail lives on the existing surface rather than a new column. Only genuinely-changed fields are written.
+
 **Positions are data, not an enum.** They live in a `Positions` SharePoint list that recruiters manage at `/recruiter/positions` (`src/lib/graph/positions.ts`), mirroring how `Recruiters` works. `DEFAULT_POSITIONS` in `constants.ts` is only a fallback for when the list is unconfigured or unreachable — the public form must render regardless. Because the set is no longer known at compile time, `positionSchema` can only check that a string arrived; `isOfferedPosition` in the submit route is what actually validates it. Positions are closed (`Active = No`), never deleted, so candidate history keeps resolving.
 
 **Queries are server-side.** Filter/search/sort/paginate inside the Graph request; never fetch-all-then-filter. The one documented exception is `countByStatus` for the summary tiles, which projects a single column and is capped.

@@ -65,15 +65,27 @@ column created with a different name keeps the original internal name forever).
 | `Position` | Single line of text | The role applied for. Options come from the `Positions` list (§6a), so this is text, not Choice. **Index this column.** **Never delete it** — the duplicate check and the dashboard filter both query it. |
 | `YearsExperience` | Number | Total experience. Allow decimals |
 | `RelevantExperience` | Number | Experience relevant to the role. Allow decimals |
-| `CurrentCompany` | Single line of text | **Unused.** Removed from the form; the app no longer reads or writes it. Safe to leave or delete. |
-| `CurrentJobTitle` | Single line of text | **Unused.** As above. |
+| `WillingToRelocate` | Single line of text | `Yes`/`No`, blank when the candidate is already in the home city |
+| `CurrentlyEmployed` | Single line of text | `Yes`/`No` |
+| `CurrentCompany` | Single line of text | Only filled when currently employed |
+| `CurrentJobTitle` | Single line of text | Only filled when currently employed |
+| `HighestQualification` | Single line of text | |
+| `UndergraduateCollege` | Single line of text | |
+| `UndergraduateCGPA` | Single line of text | Text, not Number — see below |
+| `PostgraduateCollege` | Single line of text | Optional |
+| `PostgraduateCGPA` | Single line of text | Optional |
+| `Certifications` | Multiple lines of text | **Plain text.** Optional |
+| `VariableComponent` | Single line of text | Optional |
+| `CTCNegotiable` | Single line of text | `Yes`/`No` |
+| `NoticePeriodNegotiable` | Single line of text | `Yes`/`No` |
+| `AgencyCode` | Single line of text | Optional, agency referrals only |
 | `CurrentCTC` | Single line of text | Free text — currency varies |
 | `ExpectedCTC` | Single line of text | Free text |
 | `NoticePeriod` | Choice | The 7 options in §4 below |
 | `ResumeURL` | Single line of text | Graph `webUrl` of the stored resume. **Not** Hyperlink. |
 | `VideoURL` | Single line of text | Graph `webUrl` of the stored video. **Not** Hyperlink. |
 | `ApplicationDate` | Date and time | Include time. **Index this column.** |
-| `Status` | Choice | The 9 options in §4 below. Default `New`. **Index this column.** |
+| `Status` | Single line of text | 15 values — see §4. Default `New`. **Index this column.** |
 | `RecruiterNotesJSON` | Multiple lines of text | **Plain text**, not rich text. Append-only JSON array. |
 | `StatusHistoryJSON` | Multiple lines of text | **Plain text**, not rich text. Append-only JSON array. |
 | `MatchScore` | Number | Leave empty and unused. Reserved for a future AI pass (spec §11). |
@@ -149,21 +161,42 @@ Immediate
 Other
 ```
 
-**`Status`** — set the default to `New`.
+**`Status`** — the app writes these 15 values. Interview, Selected and Rejected
+happen at a round, so they carry an `L1`/`L2`/`L3` suffix; the rest are single
+points. Default to `New`.
+
 ```
 New
 Screening
 Shortlisted
-Interview
-Selected
+Interview L1
+Interview L2
+Interview L3
+Selected L1
+Selected L2
+Selected L3
 Offer
 Joined
-Rejected
+Rejected L1
+Rejected L2
+Rejected L3
 On Hold
 ```
 
-For both, turn **off** "Can add values manually" so a typo cannot create a
-status the app does not recognise.
+`NoticePeriod` is a Choice column — turn **off** "Can add values manually" so a
+typo cannot create a value the app does not recognise.
+
+`Status` is **Single line of text**, not Choice. The app owns that vocabulary
+(stages × rounds, derived in one place in `src/lib/constants.ts`), and a text
+column means adding a round later is a code change rather than a code change
+*plus* a SharePoint edit in every environment. The app only ever writes one of
+the 15 values above, and reads tolerate anything else by falling back to `New`.
+
+> **Upgrading an existing site.** If `Status` is already a Choice column with the
+> old 9 values, either change its type to Single line of text — SharePoint keeps
+> the existing values — or add the six new levelled values to the Choice list.
+> Existing records keep working either way: a stored `Interview` with no round
+> still parses, and shows as the Interview stage.
 
 ---
 
