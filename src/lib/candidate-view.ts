@@ -20,6 +20,20 @@ export type CandidateView = {
   position: string
   yearsExperience: number
   relevantExperience: number
+  willingToRelocate: string
+  currentlyEmployed: string
+  currentCompany: string
+  currentJobTitle: string
+  highestQualification: string
+  undergraduateCollege: string
+  undergraduateCGPA: string
+  postgraduateCollege: string
+  postgraduateCGPA: string
+  certifications: string
+  variableComponent: string
+  ctcNegotiable: string
+  noticePeriodNegotiable: string
+  agencyCode: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: string
@@ -50,6 +64,20 @@ export function toView(candidate: Candidate): CandidateView {
     position: candidate.position,
     yearsExperience: candidate.yearsExperience,
     relevantExperience: candidate.relevantExperience,
+    willingToRelocate: candidate.willingToRelocate,
+    currentlyEmployed: candidate.currentlyEmployed,
+    currentCompany: candidate.currentCompany,
+    currentJobTitle: candidate.currentJobTitle,
+    highestQualification: candidate.highestQualification,
+    undergraduateCollege: candidate.undergraduateCollege,
+    undergraduateCGPA: candidate.undergraduateCGPA,
+    postgraduateCollege: candidate.postgraduateCollege,
+    postgraduateCGPA: candidate.postgraduateCGPA,
+    certifications: candidate.certifications,
+    variableComponent: candidate.variableComponent,
+    ctcNegotiable: candidate.ctcNegotiable,
+    noticePeriodNegotiable: candidate.noticePeriodNegotiable,
+    agencyCode: candidate.agencyCode,
     currentCTC: candidate.currentCTC,
     expectedCTC: candidate.expectedCTC,
     noticePeriod: candidate.noticePeriod,

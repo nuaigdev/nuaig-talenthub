@@ -44,6 +44,20 @@ export type Candidate = {
   position: Position
   yearsExperience: number
   relevantExperience: number
+  willingToRelocate: string
+  currentlyEmployed: string
+  currentCompany: string
+  currentJobTitle: string
+  highestQualification: string
+  undergraduateCollege: string
+  undergraduateCGPA: string
+  postgraduateCollege: string
+  postgraduateCGPA: string
+  certifications: string
+  variableComponent: string
+  ctcNegotiable: string
+  noticePeriodNegotiable: string
+  agencyCode: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: NoticePeriod
@@ -70,6 +84,20 @@ type CandidateFields = Record<string, unknown> & {
   Position?: string
   YearsExperience?: number
   RelevantExperience?: number
+  WillingToRelocate?: string
+  CurrentlyEmployed?: string
+  CurrentCompany?: string
+  CurrentJobTitle?: string
+  HighestQualification?: string
+  UndergraduateCollege?: string
+  UndergraduateCGPA?: string
+  PostgraduateCollege?: string
+  PostgraduateCGPA?: string
+  Certifications?: string
+  VariableComponent?: string
+  CTCNegotiable?: string
+  NoticePeriodNegotiable?: string
+  AgencyCode?: string
   CurrentCTC?: string
   ExpectedCTC?: string
   NoticePeriod?: string
@@ -99,6 +127,20 @@ const SELECTED_FIELDS = [
   'Position',
   'YearsExperience',
   'RelevantExperience',
+  'WillingToRelocate',
+  'CurrentlyEmployed',
+  'CurrentCompany',
+  'CurrentJobTitle',
+  'HighestQualification',
+  'UndergraduateCollege',
+  'UndergraduateCGPA',
+  'PostgraduateCollege',
+  'PostgraduateCGPA',
+  'Certifications',
+  'VariableComponent',
+  'CTCNegotiable',
+  'NoticePeriodNegotiable',
+  'AgencyCode',
   'CurrentCTC',
   'ExpectedCTC',
   'NoticePeriod',
@@ -159,6 +201,20 @@ export function toCandidate(item: ListItem): Candidate {
     position: (fields.Position ?? 'Other') as Position,
     yearsExperience: Number(fields.YearsExperience ?? 0),
     relevantExperience: Number(fields.RelevantExperience ?? 0),
+    willingToRelocate: fields.WillingToRelocate ?? '',
+    currentlyEmployed: fields.CurrentlyEmployed ?? '',
+    currentCompany: fields.CurrentCompany ?? '',
+    currentJobTitle: fields.CurrentJobTitle ?? '',
+    highestQualification: fields.HighestQualification ?? '',
+    undergraduateCollege: fields.UndergraduateCollege ?? '',
+    undergraduateCGPA: fields.UndergraduateCGPA ?? '',
+    postgraduateCollege: fields.PostgraduateCollege ?? '',
+    postgraduateCGPA: fields.PostgraduateCGPA ?? '',
+    certifications: fields.Certifications ?? '',
+    variableComponent: fields.VariableComponent ?? '',
+    ctcNegotiable: fields.CTCNegotiable ?? '',
+    noticePeriodNegotiable: fields.NoticePeriodNegotiable ?? '',
+    agencyCode: fields.AgencyCode ?? '',
     currentCTC: fields.CurrentCTC ?? '',
     expectedCTC: fields.ExpectedCTC ?? '',
     noticePeriod: (fields.NoticePeriod ?? 'Other') as NoticePeriod,
@@ -228,6 +284,20 @@ export type NewCandidate = {
   position: Position
   yearsExperience: number
   relevantExperience: number
+  willingToRelocate: string
+  currentlyEmployed: string
+  currentCompany: string
+  currentJobTitle: string
+  highestQualification: string
+  undergraduateCollege: string
+  undergraduateCGPA: string
+  postgraduateCollege: string
+  postgraduateCGPA: string
+  certifications: string
+  variableComponent: string
+  ctcNegotiable: string
+  noticePeriodNegotiable: string
+  agencyCode: string
   currentCTC: string
   expectedCTC: string
   noticePeriod: NoticePeriod
@@ -269,6 +339,20 @@ export async function createCandidate(input: NewCandidate): Promise<Candidate> {
         Position: input.position,
         YearsExperience: input.yearsExperience,
         RelevantExperience: input.relevantExperience,
+        WillingToRelocate: input.willingToRelocate,
+        CurrentlyEmployed: input.currentlyEmployed,
+        CurrentCompany: input.currentCompany,
+        CurrentJobTitle: input.currentJobTitle,
+        HighestQualification: input.highestQualification,
+        UndergraduateCollege: input.undergraduateCollege,
+        UndergraduateCGPA: input.undergraduateCGPA,
+        PostgraduateCollege: input.postgraduateCollege,
+        PostgraduateCGPA: input.postgraduateCGPA,
+        Certifications: input.certifications,
+        VariableComponent: input.variableComponent,
+        CTCNegotiable: input.ctcNegotiable,
+        NoticePeriodNegotiable: input.noticePeriodNegotiable,
+        AgencyCode: input.agencyCode,
         CurrentCTC: input.currentCTC,
         ExpectedCTC: input.expectedCTC,
         NoticePeriod: input.noticePeriod,

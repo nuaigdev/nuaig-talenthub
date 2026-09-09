@@ -58,9 +58,23 @@ export type ConfirmationSummary = {
   position: string
   yearsExperience: number
   relevantExperience: number
+  willingToRelocate: string
+  currentlyEmployed: string
+  currentCompany: string
+  currentJobTitle: string
+  highestQualification: string
+  undergraduateCollege: string
+  undergraduateCGPA: string
+  postgraduateCollege: string
+  postgraduateCGPA: string
+  certifications: string
   currentCTC: string
+  variableComponent: string
   expectedCTC: string
+  ctcNegotiable: string
   noticePeriod: string
+  noticePeriodNegotiable: string
+  agencyCode: string
   applicationDate: string
   resumeBytes: number
   videoBytes: number
@@ -101,12 +115,26 @@ function summaryRows(input: ConfirmationSummary): Array<[string, string]> {
       ['Email', input.email],
       ['Phone', input.phone],
       ['Location', input.location],
+      ['Willing to relocate', input.willingToRelocate],
       ['LinkedIn', input.linkedIn],
       ['Total experience', years(input.yearsExperience)],
       ['Relevant experience', years(input.relevantExperience)],
+      ['Currently employed', input.currentlyEmployed],
+      ['Current organisation', input.currentCompany],
+      ['Current job title', input.currentJobTitle],
+      ['Highest qualification', input.highestQualification],
+      ['Undergraduate college', input.undergraduateCollege],
+      ['Undergraduate CGPA', input.undergraduateCGPA],
+      ['Postgraduate college', input.postgraduateCollege],
+      ['Postgraduate CGPA', input.postgraduateCGPA],
+      ['Certifications', input.certifications],
       ['Current CTC', input.currentCTC],
+      ['Variable component', input.variableComponent],
       ['Expected CTC', input.expectedCTC],
+      ['Expected CTC negotiable', input.ctcNegotiable],
       ['Notice period', input.noticePeriod],
+      ['Notice period negotiable', input.noticePeriodNegotiable],
+      ['Agency code', input.agencyCode],
       ['Resume', input.resumeBytes ? `Received (${formatBytes(input.resumeBytes)})` : ''],
       [
         'Introduction video',

@@ -24,6 +24,29 @@ export const DEFAULT_POSITIONS = [
 /** A position is free-form text now, not a closed union — recruiters add them. */
 export type Position = string
 
+/**
+ * The office location candidates are asked about. The form offers this or
+ * "Other"; choosing Other reveals a free-text city and the relocation question.
+ * Named rather than inlined so opening a second office is one edit.
+ */
+export const HOME_CITY = 'Indore'
+
+export const LOCATION_CHOICES = [HOME_CITY, 'Other'] as const
+
+export const YES_NO = ['Yes', 'No'] as const
+
+export type YesNo = (typeof YES_NO)[number]
+
+export const HIGHEST_QUALIFICATIONS = [
+  'Diploma',
+  "Bachelor's degree",
+  "Master's degree",
+  'Doctorate (PhD)',
+  'Other',
+] as const
+
+export type HighestQualification = (typeof HIGHEST_QUALIFICATIONS)[number]
+
 export const NOTICE_PERIODS = [
   'Immediate',
   '15 days',
@@ -89,8 +112,13 @@ export const APPLY_SECTIONS = [
   },
   {
     id: 'position',
-    label: 'Position',
-    blurb: 'Which role are you applying for?',
+    label: 'Role & experience',
+    blurb: 'The role you want, and where you are today.',
+  },
+  {
+    id: 'education',
+    label: 'Education',
+    blurb: 'Your qualifications and any certifications.',
   },
   {
     id: 'resume',
@@ -105,7 +133,7 @@ export const APPLY_SECTIONS = [
   {
     id: 'consent',
     label: 'Review & consent',
-    blurb: 'Check your details and confirm your submission.',
+    blurb: 'Referral details, then check everything and confirm.',
   },
 ] as const
 

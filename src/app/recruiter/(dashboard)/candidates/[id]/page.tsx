@@ -73,7 +73,14 @@ export default async function CandidateDetailPage({ params }: { params: Params }
                   {candidate.phone}
                 </a>
               </Detail>
-              <Detail label="Location">{candidate.location}</Detail>
+              <Detail label="Location">
+                {candidate.location}
+                {candidate.willingToRelocate && (
+                  <span className="block text-xs text-secondary">
+                    Relocate: {candidate.willingToRelocate}
+                  </span>
+                )}
+              </Detail>
               <Detail label="LinkedIn">
                 {candidate.linkedIn ? (
                   <a
@@ -90,9 +97,68 @@ export default async function CandidateDetailPage({ params }: { params: Params }
               </Detail>
               <Detail label="Total experience">{candidate.yearsExperience} years</Detail>
               <Detail label="Relevant experience">{candidate.relevantExperience} years</Detail>
-              <Detail label="Notice period">{candidate.noticePeriod}</Detail>
-              <Detail label="Current CTC">{candidate.currentCTC || '—'}</Detail>
-              <Detail label="Expected CTC">{candidate.expectedCTC || '—'}</Detail>
+              <Detail label="Notice period">
+                {candidate.noticePeriod}
+                {candidate.noticePeriodNegotiable && (
+                  <span className="block text-xs text-secondary">
+                    Negotiable: {candidate.noticePeriodNegotiable}
+                  </span>
+                )}
+              </Detail>
+              <Detail label="Currently employed">{candidate.currentlyEmployed || '—'}</Detail>
+              <Detail label="Current organisation">{candidate.currentCompany || '—'}</Detail>
+              <Detail label="Current job title">{candidate.currentJobTitle || '—'}</Detail>
+              <Detail label="Current CTC">
+                {candidate.currentCTC || '—'}
+                {candidate.variableComponent && (
+                  <span className="block text-xs text-secondary">
+                    Variable: {candidate.variableComponent}
+                  </span>
+                )}
+              </Detail>
+              <Detail label="Expected CTC">
+                {candidate.expectedCTC || '—'}
+                {candidate.ctcNegotiable && (
+                  <span className="block text-xs text-secondary">
+                    Negotiable: {candidate.ctcNegotiable}
+                  </span>
+                )}
+              </Detail>
+              {candidate.agencyCode && (
+                <Detail label="Agency code">{candidate.agencyCode}</Detail>
+              )}
+            </dl>
+          </Card>
+
+          <Card className="p-5 sm:p-6">
+            <h2 className="mb-4 text-sm font-semibold text-ink">Education</h2>
+            <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              <Detail label="Highest qualification">
+                {candidate.highestQualification || '—'}
+              </Detail>
+              <Detail label="Certifications">
+                {candidate.certifications ? (
+                  <span className="whitespace-pre-wrap">{candidate.certifications}</span>
+                ) : (
+                  '—'
+                )}
+              </Detail>
+              <Detail label="Undergraduate college">
+                {candidate.undergraduateCollege || '—'}
+                {candidate.undergraduateCGPA && (
+                  <span className="block text-xs text-secondary">
+                    CGPA: {candidate.undergraduateCGPA}
+                  </span>
+                )}
+              </Detail>
+              <Detail label="Postgraduate college">
+                {candidate.postgraduateCollege || '—'}
+                {candidate.postgraduateCGPA && (
+                  <span className="block text-xs text-secondary">
+                    CGPA: {candidate.postgraduateCGPA}
+                  </span>
+                )}
+              </Detail>
             </dl>
           </Card>
 
