@@ -150,7 +150,10 @@ export function FilterBar({
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
-              <option value="experience">Most experience</option>
+              {/* Pipeline order, so "early stage" runs New → Interview L1 → L2
+                  → … → Joined, with Rejected and On Hold at the far end. */}
+              <option value="status">Status — early stage first</option>
+              <option value="status-desc">Status — late stage first</option>
             </Select>
           </div>
 

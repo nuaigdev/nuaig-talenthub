@@ -86,6 +86,7 @@ column created with a different name keeps the original internal name forever).
 | `VideoURL` | Single line of text | Graph `webUrl` of the stored video. **Not** Hyperlink. |
 | `ApplicationDate` | Date and time | Include time. **Index this column.** |
 | `Status` | Single line of text | 15 values — see §4. Default `New`. **Index this column.** |
+| `StatusRank` | Number | No decimals. Written by the app alongside `Status`; never edit by hand. It exists so the dashboard can sort by pipeline order — see below. **Index this column.** |
 | `RecruiterNotesJSON` | Multiple lines of text | **Plain text**, not rich text. Append-only JSON array. |
 | `StatusHistoryJSON` | Multiple lines of text | **Plain text**, not rich text. Append-only JSON array. |
 | `MatchScore` | Number | Leave empty and unused. Reserved for a future AI pass (spec §11). |
@@ -117,8 +118,10 @@ Graph refuses to `$filter` or `$orderby` a SharePoint list on a non-indexed
 column once the list exceeds the list view threshold (5,000 items). The app
 sends `Prefer: HonorNonIndexedQueriesWarningMayFailRandomly` so small lists work
 without indexes, but that header is a stopgap — as the name says, it fails
-randomly at scale. Index at least `CandidateID`, `Email`, `Position`, `Status`
-and `ApplicationDate` before going live.
+randomly at scale. Index at least `CandidateID`, `Email`, `Position`, `Status`,
+`StatusRank` and `ApplicationDate` before going live — the last two are what the
+sort orders by, and an unindexed sort is the first thing to fail as the list
+grows.
 
 To add an index: **List settings → Indexed columns → Create a new index**.
 
@@ -191,6 +194,32 @@ typo cannot create a value the app does not recognise.
 column means adding a round later is a code change rather than a code change
 *plus* a SharePoint edit in every environment. The app only ever writes one of
 the 15 values above, and reads tolerate anything else by falling back to `New`.
+
+### `StatusRank`
+
+The dashboard offers a status sort that runs in pipeline order — New,
+Screening, Shortlisted, Interview L1/L2/L3, Selected, Offer, Joined, then
+Rejected and On Hold. OData cannot express "order by this list's sequence", and
+ordering the `Status` text alphabetically would interleave the stages
+meaninglessly and scatter the interview rounds. So the sequence is stored as a
+number and ordered on directly.
+
+The app writes it on create and on every status change, so it stays correct by
+itself. `statusRank` in `src/lib/constants.ts` is the source of truth for the
+values; nothing reads the column back, it exists purely to be sorted on.
+
+> **Upgrading an existing site.** Rows that predate the column have no rank and
+> would otherwise clump at one end of that sort. After adding the column, run
+> the backfill once from the repo root:
+>
+> ```bash
+> node scripts/backfill-status-rank.mjs           # dry run, writes nothing
+> node scripts/backfill-status-rank.mjs --apply   # fill the ranks in
+> ```
+>
+> It reads the same `.env.local` the app does, is safe to re-run, and reports
+> any row it could not patch. Until it has run, the two status sort options are
+> the only thing affected — every other filter and sort is unaffected.
 
 > **Upgrading an existing site.** If `Status` is already a Choice column with the
 > old 9 values, either change its type to Single line of text — SharePoint keeps

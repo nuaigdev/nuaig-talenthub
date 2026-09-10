@@ -7,6 +7,7 @@ import {
   DASHBOARD_PAGE_SIZE,
   parseStatus,
   stageTakesLevel,
+  statusRank,
   type CandidateStatus,
   type NoticePeriod,
   type Position,
@@ -367,6 +368,7 @@ export async function createCandidate(input: NewCandidate): Promise<Candidate> {
         VideoURL: input.videoUrl,
         ApplicationDate: input.applicationDate,
         Status: 'New',
+        StatusRank: statusRank('New'),
         RecruiterNotesJSON: '[]',
         StatusHistoryJSON: JSON.stringify(seededHistory),
       },
@@ -422,7 +424,7 @@ export type CandidateQuery = {
   statuses?: CandidateStatus[]
   from?: string
   to?: string
-  sort?: 'newest' | 'oldest' | 'experience'
+  sort?: 'newest' | 'oldest' | 'status' | 'status-desc'
   /** Opaque Graph `@odata.nextLink`, passed straight back to fetch page N+1. */
   cursor?: string
   pageSize?: number
@@ -478,8 +480,14 @@ function buildOrderBy(sort: CandidateQuery['sort']): string {
   switch (sort) {
     case 'oldest':
       return 'fields/ApplicationDate asc'
-    case 'experience':
-      return 'fields/YearsExperience desc'
+    // Pipeline order, not alphabetical — which is the whole reason `StatusRank`
+    // is stored: OData cannot express "sort by this list's sequence", and
+    // ordering the Status text would interleave the stages meaninglessly and
+    // scatter Interview L1-L3. See `statusRank` in constants.ts.
+    case 'status':
+      return 'fields/StatusRank asc'
+    case 'status-desc':
+      return 'fields/StatusRank desc'
     default:
       return 'fields/ApplicationDate desc'
   }
@@ -766,6 +774,9 @@ export async function changeStatus(
     }
     return {
       Status: toStatus,
+      // Kept in lockstep with Status — it is derived, and the only reason it is
+      // stored at all is that Graph can only order by a column that exists.
+      StatusRank: statusRank(toStatus),
       StatusHistoryJSON: JSON.stringify([...current.statusHistory, entry]),
     }
   })

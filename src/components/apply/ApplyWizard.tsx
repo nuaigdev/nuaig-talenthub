@@ -292,8 +292,8 @@ export function ApplyWizard({
       <header className="mb-8 max-w-2xl">
         <h1 className="text-3xl font-semibold text-ink">Apply to NuAIg</h1>
         <p className="mt-2 text-secondary">
-          Every section is on this page. Documents begin uploading as soon as you select
-          them, so there is no wait when you submit.
+          Share your details and resume. Our team reviews every application and will be
+          in touch if there is a match.
         </p>
       </header>
 

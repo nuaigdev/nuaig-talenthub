@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Button, Card, Spinner, StatusBadge } from '@/components/ui'
-import { formatDate, type CandidateView } from '@/lib/candidate-view'
+import type { CandidateView } from '@/lib/candidate-view'
 import { loadMoreCandidatesAction } from '@/app/recruiter/load-more'
 
 /**
@@ -79,7 +79,7 @@ export function CandidateTable({
                 <Th align="right">Relevant</Th>
                 <Th>Expected CTC</Th>
                 <Th>Notice</Th>
-                <Th>Applied</Th>
+                <Th>Agency</Th>
                 <Th>Status</Th>
               </tr>
             </thead>
@@ -110,9 +110,8 @@ export function CandidateTable({
                   </td>
                   <td className="px-4 py-3 text-secondary">{candidate.expectedCTC || '—'}</td>
                   <td className="px-4 py-3 text-secondary">{candidate.noticePeriod}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-secondary">
-                    {formatDate(candidate.applicationDate)}
-                  </td>
+                  {/* Agency referrals only, so blank for most rows. */}
+                  <td className="px-4 py-3 text-secondary">{candidate.agencyCode || '—'}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={candidate.status} />
                   </td>

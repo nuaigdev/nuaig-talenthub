@@ -124,6 +124,13 @@ into the Graph request. The dashboard never fetches everything and filters in
 memory. The one exception is the summary-tile tally, which projects a single
 column and is capped — noted in `countByStatus`.
 
+That constraint is why sorting by status needs a stored `StatusRank` number.
+OData cannot order by a list's own sequence, and ordering the `Status` text
+alphabetically would interleave the stages and scatter Interview L1-L3, so the
+pipeline position is written alongside every status change and ordered on
+directly. `statusRank` in `src/lib/constants.ts` derives it from
+`STATUS_STAGES`, which makes that array the sort order.
+
 **The candidate never sees a technical error.** Failures carry two messages: a
 generic one for the user and a categorised technical one for the structured
 server log (`VALIDATION_FAILED`, `DUPLICATE_SUBMISSION`, `UPLOAD_FAILED`,

@@ -43,7 +43,7 @@ export function parseQuery(params: Record<string, string | string[] | undefined>
     statuses,
     from: isDate(one('from')) ? one('from') : undefined,
     to: isDate(one('to')) ? one('to') : undefined,
-    sort: sort === 'oldest' || sort === 'experience' ? sort : 'newest',
+    sort: sort === 'oldest' || sort === 'status' || sort === 'status-desc' ? sort : 'newest',
   }
 }
 

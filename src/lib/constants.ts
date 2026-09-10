@@ -69,6 +69,13 @@ export type NoticePeriod = (typeof NOTICE_PERIODS)[number]
  * append-only history log honest, and lets a stage filter match every round
  * under it with a prefix match.
  */
+/**
+ * Pipeline order. This array is the logical sequence a candidate moves through,
+ * and `statusRank` turns an index into the number the dashboard sorts on — so
+ * reordering this list reorders the status sort. Terminal states (Rejected, On
+ * Hold) sit at the end deliberately: sorting ascending should surface live
+ * candidates first and park the closed ones behind them.
+ */
 export const STATUS_STAGES = [
   'New',
   'Screening',
@@ -113,6 +120,22 @@ export function parseStatus(value: string): { stage: StatusStage; level: StatusL
   }
 
   return { stage: 'New', level: null }
+}
+
+/**
+ * The sortable position of a status, stored alongside it in `StatusRank` so the
+ * dashboard can order by pipeline sequence instead of alphabetically.
+ *
+ * Ten per stage leaves room for the rounds: Interview L1/L2/L3 land on 41/42/43
+ * and so stay together, in round order, between Shortlisted (30) and Selected.
+ * Stages start at 1 rather than 0 so a real rank is always truthy — a 0 or
+ * missing value means a row predating the column and needing the backfill.
+ */
+export function statusRank(value: string): number {
+  const { stage, level } = parseStatus(value)
+  const stageIndex = STATUS_STAGES.indexOf(stage)
+  const levelIndex = level ? STATUS_LEVELS.indexOf(level) + 1 : 0
+  return (stageIndex + 1) * 10 + levelIndex
 }
 
 /** Every value the app will write — the exact vocabulary for the SharePoint column. */
