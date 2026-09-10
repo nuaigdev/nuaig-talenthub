@@ -3,6 +3,7 @@ import { auth } from './auth'
 import { findActiveRecruiter, type RecruiterRecord } from './graph/recruiters'
 import { AppError } from './errors'
 import { logger } from './logger'
+import type { RecruiterRole } from './constants'
 
 /**
  * The single authorization gate for everything under `/recruiter` (spec.md §12).
@@ -18,6 +19,10 @@ import { logger } from './logger'
 export type RecruiterIdentity = {
   email: string
   displayName: string
+  /** From the Recruiters `Role` column. Admins are unrestricted by position. */
+  role: RecruiterRole
+  /** Convenience mirror of `role === 'admin'`. */
+  isAdmin: boolean
 }
 
 /**
@@ -52,6 +57,8 @@ export async function getRecruiterState(): Promise<RecruiterState> {
     recruiter: {
       email: record.email,
       displayName: session?.user?.displayName || record.displayName,
+      role: record.role,
+      isAdmin: record.role === 'admin',
     },
   }
 }
@@ -75,6 +82,8 @@ export async function getRecruiter(): Promise<RecruiterIdentity | null> {
     email: record.email,
     // Prefer the Entra display name; fall back to the list's.
     displayName: session?.user?.displayName || record.displayName,
+    role: record.role,
+    isAdmin: record.role === 'admin',
   }
 }
 

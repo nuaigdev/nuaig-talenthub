@@ -290,9 +290,18 @@ you should not need to touch it again after creating it.
 |---|---|---|
 | `Title` | Single line of text | The built-in Title column. The position name, e.g. `AI Engineer`. |
 | `Active` | Yes/No | Default **Yes**. No hides it from the application form. |
+| `OwnerEmail` | Single line of text | Lower-cased email of the position's owner. Set automatically to the creator when a position is added in the app; an admin can (re)assign it. The owner is never removable from the hiring team. |
+| `HiringManagersJSON` | Single line of text | A JSON array of lower-cased emails — the hiring team, **including the owner**. Membership of this array is what grants a recruiter access to the position's candidates. Managed in the app; do not hand-edit unless recovering a row. |
 
 Seed it with your current roles, or add them from the dashboard once the app is
 running.
+
+**Access follows the hiring team.** A recruiter only sees the candidates for
+positions whose `HiringManagersJSON` contains their email — on the dashboard,
+the candidate list, the summary tiles, every candidate profile, and the document
+broker, all enforced server-side. An **admin** (see §6) sees every position and
+candidate. A position with no owner/managers (a legacy row, or `Other`) is
+visible only to admins until a team is assigned.
 
 This list is **optional**. Leave `SHAREPOINT_POSITIONS_LIST_ID` blank and the app
 falls back to the built-in list in `src/lib/constants.ts` — the application form
@@ -317,6 +326,7 @@ membership here, not an Entra group, decides who can open the dashboard.
 | `Email` | Single line of text | The recruiter's Entra UPN / sign-in address. Compared case-insensitively. |
 | `DisplayName` | Single line of text | Shown in the header if Entra returns no name. |
 | `Active` | Yes/No | Default **Yes**. Set to No to revoke access without deleting the row. |
+| `Role` | Choice: `Recruiter`, `Admin` | Default **Recruiter**. A `Recruiter` sees only the positions they are a hiring manager on; an `Admin` sees every position and candidate, and can assign a position's owner. Read tolerantly — anything that is not `Admin` is treated as `Recruiter`. |
 
 Add at least one row for yourself before testing sign-in, or you will
 authenticate successfully and then be refused.

@@ -1,6 +1,7 @@
 import 'server-only'
 import { appOnlyClient, wrapGraphError } from './client'
 import { sharePointEnv } from '../env'
+import { parseRole, type RecruiterRole } from '../constants'
 
 /**
  * Recruiter authorization (spec.md §3 decision 2).
@@ -9,17 +10,23 @@ import { sharePointEnv } from '../env'
  * allowed in* — deliberately not an Entra security group, so an admin can
  * onboard or offboard a recruiter by editing a SharePoint list, with no IT
  * ticket and no redeploy.
+ *
+ * The `Role` column layers coarse RBAC on top: an `admin` sees every position
+ * and candidate, a `recruiter` only the positions they are a hiring manager on
+ * (enforced in positions.ts / candidates.ts). Role is read tolerantly and
+ * fails safe to `recruiter`.
  */
 
 export type RecruiterRecord = {
   email: string
   displayName: string
   active: boolean
+  role: RecruiterRole
 }
 
 type ListItem = {
   id: string
-  fields?: { Email?: string; DisplayName?: string; Active?: boolean | string }
+  fields?: { Email?: string; DisplayName?: string; Active?: boolean | string; Role?: string }
 }
 
 /**
@@ -58,7 +65,7 @@ async function loadRecruiters(): Promise<Map<string, RecruiterRecord>> {
   try {
     let request = client
       .api(`/sites/${sharePointEnv.siteId}/lists/${sharePointEnv.recruitersListId}/items`)
-      .expand('fields($select=Email,DisplayName,Active)')
+      .expand('fields($select=Email,DisplayName,Active,Role)')
       .top(999)
 
     // The recruiter roster is small, but page anyway rather than assume.
@@ -71,6 +78,7 @@ async function loadRecruiters(): Promise<Map<string, RecruiterRecord>> {
           email: normalise(email),
           displayName: item.fields?.DisplayName ?? email,
           active: isActive(item.fields?.Active),
+          role: parseRole(item.fields?.Role),
         })
       }
 
@@ -106,4 +114,21 @@ export async function findActiveRecruiter(email: string): Promise<RecruiterRecor
 /** Drops the cache — used after an authorization failure so a just-added recruiter isn't stuck waiting out the TTL. */
 export function invalidateRecruiterCache(): void {
   cache = null
+}
+
+/**
+ * Every active recruiter, for the "add a hiring manager" dropdown on the
+ * Positions screen. A position's hiring managers must come from this roster
+ * (spec: "other users should only come from recruiters list"), so the picker
+ * and the server-side validation both read it. Sorted by display name for a
+ * predictable list.
+ */
+export async function listActiveRecruiters(): Promise<RecruiterRecord[]> {
+  const all = [...(await recruiterMap()).values()].filter((r) => r.active)
+  return all.sort((a, b) => a.displayName.localeCompare(b.displayName))
+}
+
+/** True when `email` is on the roster and active — used to validate a manager add. */
+export async function isActiveRecruiter(email: string): Promise<boolean> {
+  return (await findActiveRecruiter(email)) !== null
 }

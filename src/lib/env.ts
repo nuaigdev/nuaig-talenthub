@@ -48,6 +48,29 @@ export const graphEnv = {
   },
 }
 
+/**
+ * Operations console access (see src/lib/monitor.ts).
+ *
+ * All optional: when unset the console route resolves to a 404 like any other
+ * missing page, so nothing about it is inferable from an unconfigured deploy.
+ * The values live only in the environment — never in source, and never printed
+ * back into the repo. `sessionSecret` falls back to NEXTAUTH_SECRET.
+ */
+export const monitorEnv = {
+  get gate(): string | undefined {
+    return process.env.MONITOR_GATE
+  },
+  get user(): string | undefined {
+    return process.env.MONITOR_USER
+  },
+  get passwordHash(): string | undefined {
+    return process.env.MONITOR_PASSWORD_HASH
+  },
+  get sessionSecret(): string | undefined {
+    return process.env.MONITOR_SESSION_SECRET || process.env.NEXTAUTH_SECRET
+  },
+}
+
 export const sharePointEnv = {
   get siteId() {
     return required('SHAREPOINT_SITE_ID')

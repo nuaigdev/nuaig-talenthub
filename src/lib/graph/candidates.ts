@@ -418,6 +418,15 @@ export type CandidateQuery = {
   search?: string
   position?: Position | 'all'
   /**
+   * Access scope: the position titles the signed-in recruiter is a hiring
+   * manager of. `undefined` means unrestricted (an admin). An **empty array**
+   * means the recruiter manages nothing, so the result is empty — enforced in
+   * `queryCandidates`/`countByStatus` without a Graph call. This is AND-ed with
+   * every other filter, so a `position=` chosen in the URL for a role the
+   * recruiter does not manage simply matches nothing.
+   */
+  allowedPositions?: string[]
+  /**
    * Zero or more statuses, OR-ed together. Empty means no status filter —
    * there is no 'all' sentinel, because an empty selection says the same thing.
    */
@@ -437,6 +446,13 @@ export type CandidatePage = {
 
 function buildFilter(query: CandidateQuery): string | null {
   const clauses: string[] = []
+
+  // Access scope first: a non-empty allow-list becomes an OR-group AND-ed with
+  // everything else. (An empty list never reaches here — callers short-circuit.)
+  if (query.allowedPositions && query.allowedPositions.length) {
+    const allowed = query.allowedPositions.map((t) => `fields/Position eq '${odata(t)}'`)
+    clauses.push(allowed.length === 1 ? allowed[0] : `(${allowed.join(' or ')})`)
+  }
 
   if (query.position && query.position !== 'all') {
     clauses.push(`fields/Position eq '${odata(query.position)}'`)
@@ -502,6 +518,12 @@ function buildOrderBy(sort: CandidateQuery['sort']): string {
  * (spec.md §3 decision 7).
  */
 export async function queryCandidates(query: CandidateQuery): Promise<CandidatePage> {
+  // A recruiter who manages no positions sees nothing — and we must not let an
+  // empty allow-list fall through to an unfiltered query.
+  if (query.allowedPositions && query.allowedPositions.length === 0 && !query.cursor) {
+    return { items: [], nextCursor: null }
+  }
+
   const client = appOnlyClient()
   const pageSize = query.pageSize ?? DASHBOARD_PAGE_SIZE
 
@@ -544,11 +566,16 @@ const COUNT_MAX_PAGES = 25
  * lightweight scan. It is capped; past the cap the tiles under-report rather
  * than hanging, and the table itself stays fully server-paginated.
  */
-export async function countByStatus(): Promise<{
+export async function countByStatus(allowedPositions?: string[]): Promise<{
   counts: Record<string, number>
   total: number
   truncated: boolean
 }> {
+  // Same access scope as the table: no managed positions ⇒ empty tiles.
+  if (allowedPositions && allowedPositions.length === 0) {
+    return { counts: {}, total: 0, truncated: false }
+  }
+
   const client = appOnlyClient()
   const counts: Record<string, number> = {}
   let total = 0
@@ -557,9 +584,14 @@ export async function countByStatus(): Promise<{
   try {
     let request = client
       .api(itemsApi())
-      .expand('fields($select=Status)')
+      .expand('fields($select=Status,Position)')
       .top(COUNT_PAGE_SIZE)
       .header('Prefer', NON_INDEXED)
+
+    if (allowedPositions && allowedPositions.length) {
+      const allowed = allowedPositions.map((t) => `fields/Position eq '${odata(t)}'`)
+      request = request.filter(allowed.length === 1 ? allowed[0] : `(${allowed.join(' or ')})`)
+    }
 
     for (let page = 0; page < COUNT_MAX_PAGES; page += 1) {
       const response = await request.get()

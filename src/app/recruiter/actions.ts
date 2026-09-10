@@ -1,12 +1,37 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireRecruiter } from '@/lib/recruiter-session'
-import { appendNote, changeStatus, updateCandidateDetails } from '@/lib/graph/candidates'
+import { requireRecruiter, type RecruiterIdentity } from '@/lib/recruiter-session'
+import {
+  appendNote,
+  changeStatus,
+  getCandidateByCandidateId,
+  updateCandidateDetails,
+} from '@/lib/graph/candidates'
 import { candidateEditSchema, fieldErrors, noteSchema, statusChangeSchema } from '@/lib/validation'
-import { isOfferedPosition } from '@/lib/graph/positions'
-import { publicMessageFor, toAppError } from '@/lib/errors'
+import { assertManagedPosition, isOfferedPosition } from '@/lib/graph/positions'
+import { AppError, publicMessageFor, toAppError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
+
+/**
+ * Every candidate mutation runs through this first: it confirms the candidate
+ * exists and that the caller is a hiring manager on the candidate's position
+ * (or an admin). Without it, a recruiter could mutate any candidate by posting
+ * their id straight to the action — a server action is a public endpoint, so
+ * the page-level scoping upstream is no protection here (§12).
+ */
+async function assertCandidateAccess(recruiter: RecruiterIdentity, candidateId: string): Promise<void> {
+  const candidate = await getCandidateByCandidateId(candidateId)
+  if (!candidate) {
+    throw new AppError('VALIDATION_FAILED', `Candidate not found: ${candidateId}`, {
+      publicMessage: 'That candidate could not be found.',
+    })
+  }
+  await assertManagedPosition(
+    { email: recruiter.email, isAdmin: recruiter.isAdmin },
+    candidate.position,
+  )
+}
 
 /**
  * Recruiter mutations (spec.md §10.2).
@@ -25,6 +50,7 @@ export async function addNoteAction(
 ): Promise<ActionResult> {
   try {
     const recruiter = await requireRecruiter()
+    await assertCandidateAccess(recruiter, candidateId)
 
     const parsed = noteSchema.safeParse({ text: formData.get('text') })
     if (!parsed.success) {
@@ -68,6 +94,7 @@ export async function updateCandidateAction(
 ): Promise<ActionResult & { fields?: Record<string, string> }> {
   try {
     const recruiter = await requireRecruiter()
+    await assertCandidateAccess(recruiter, candidateId)
 
     const parsed = candidateEditSchema.safeParse({
       ...values,
@@ -124,6 +151,7 @@ export async function changeStatusAction(
 ): Promise<ActionResult> {
   try {
     const recruiter = await requireRecruiter()
+    await assertCandidateAccess(recruiter, candidateId)
 
     const parsed = statusChangeSchema.safeParse({ status: formData.get('status') })
     if (!parsed.success) {

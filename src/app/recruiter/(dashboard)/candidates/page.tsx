@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { requireRecruiter } from '@/lib/recruiter-session'
 import { queryCandidates } from '@/lib/graph/candidates'
 import { parseQuery, serialiseQuery } from '@/lib/candidate-query'
-import { activePositions } from '@/lib/graph/positions'
+import { activePositions, managedTitles } from '@/lib/graph/positions'
 import { encodeCursor } from '@/lib/cursor'
 import { toView } from '@/lib/candidate-view'
 import { Alert } from '@/components/ui'
@@ -24,12 +24,17 @@ export const metadata: Metadata = { title: 'Candidates' }
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
 export default async function CandidatesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireRecruiter()
+  const recruiter = await requireRecruiter()
 
   const query = parseQuery(await searchParams)
 
   try {
-    const [page, positions] = await Promise.all([queryCandidates(query), activePositions()])
+    const scope = await managedTitles(recruiter)
+    const allowedPositions = scope === 'all' ? undefined : scope
+    const [page, positions] = await Promise.all([
+      queryCandidates({ ...query, allowedPositions }),
+      scope === 'all' ? activePositions() : Promise.resolve(scope),
+    ])
 
     return (
       <>

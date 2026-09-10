@@ -76,6 +76,24 @@ export type NoticePeriod = (typeof NOTICE_PERIODS)[number]
  * Hold) sit at the end deliberately: sorting ascending should surface live
  * candidates first and park the closed ones behind them.
  */
+/**
+ * Recruiter roles, stored in the `Recruiters` list `Role` choice column.
+ *
+ * `recruiter` sees only the positions they are a hiring manager on; `admin`
+ * sees every position and every candidate. The list is the source of truth —
+ * read tolerantly (anything but a case-insensitive "admin" is a recruiter), so
+ * a missing or misspelt value fails safe to the least-privileged role.
+ */
+export const RECRUITER_ROLES = ['recruiter', 'admin'] as const
+
+export type RecruiterRole = (typeof RECRUITER_ROLES)[number]
+
+export function parseRole(value: unknown): RecruiterRole {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'admin'
+    ? 'admin'
+    : 'recruiter'
+}
+
 export const STATUS_STAGES = [
   'New',
   'Screening',

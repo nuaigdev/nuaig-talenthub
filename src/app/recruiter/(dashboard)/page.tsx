@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { requireRecruiter } from '@/lib/recruiter-session'
 import { countByStatus, queryCandidates } from '@/lib/graph/candidates'
 import { parseQuery, serialiseQuery } from '@/lib/candidate-query'
-import { activePositions } from '@/lib/graph/positions'
+import { activePositions, managedTitles } from '@/lib/graph/positions'
 import { encodeCursor } from '@/lib/cursor'
 import { toView } from '@/lib/candidate-view'
 import { Alert } from '@/components/ui'
@@ -26,16 +26,24 @@ export const metadata: Metadata = { title: 'Dashboard' }
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireRecruiter()
+  const recruiter = await requireRecruiter()
 
   const query = parseQuery(await searchParams)
 
   try {
+    // Access scope: an admin sees everything (`'all'`); a recruiter only the
+    // positions they are a hiring manager on. The scope is applied server-side
+    // to every read below and to the filter dropdown, so it cannot be widened
+    // from the client.
+    const scope = await managedTitles(recruiter)
+    const allowedPositions = scope === 'all' ? undefined : scope
+    const scopedQuery = { ...query, allowedPositions }
+
     // Independent reads, so they go out together.
     const [summary, page, positions] = await Promise.all([
-      countByStatus(),
-      queryCandidates(query),
-      activePositions(),
+      countByStatus(allowedPositions),
+      queryCandidates(scopedQuery),
+      scope === 'all' ? activePositions() : Promise.resolve(scope),
     ])
 
     return (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireRecruiter } from '@/lib/recruiter-session'
 import { getCandidateByCandidateId } from '@/lib/graph/candidates'
+import { assertManagedPosition } from '@/lib/graph/positions'
 import { candidateFolderPath, findCandidateDocument, getDownloadUrl } from '@/lib/graph/drive'
 import { candidateFolderName } from '@/lib/sanitize'
 import { AppError, publicMessageFor, toAppError } from '@/lib/errors'
@@ -56,6 +57,14 @@ export async function GET(request: Request, { params }: { params: Params }) {
         publicMessage: 'That candidate could not be found.',
       })
     }
+
+    // A recruiter may only fetch documents for candidates on a position they
+    // manage. Checked here, not just on the page, because this is a directly
+    // reachable endpoint (§12). Admins are unrestricted.
+    await assertManagedPosition(
+      { email: recruiter.email, isAdmin: recruiter.isAdmin },
+      candidate.position,
+    )
 
     // Folder name is regenerated from stored data with the same sanitiser used
     // at write time, so it round-trips exactly (spec.md §7.1).

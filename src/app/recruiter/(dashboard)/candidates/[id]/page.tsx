@@ -9,7 +9,7 @@ import { StatusControl } from '@/components/recruiter/StatusControl'
 import { NotesPanel } from '@/components/recruiter/NotesPanel'
 import { DocumentViewer } from '@/components/recruiter/DocumentViewer'
 import { CandidateEditor } from '@/components/recruiter/CandidateEditor'
-import { activePositions } from '@/lib/graph/positions'
+import { activePositions, managedTitles } from '@/lib/graph/positions'
 
 /**
  * Candidate detail (spec.md §10.2).
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function CandidateDetailPage({ params }: { params: Params }) {
-  await requireRecruiter()
+  const recruiter = await requireRecruiter()
 
   const { id } = await params
   const [record, positions] = await Promise.all([
@@ -37,6 +37,12 @@ export default async function CandidateDetailPage({ params }: { params: Params }
     activePositions(),
   ])
   if (!record) notFound()
+
+  // Position-scoped access, checked on the server so editing the URL to another
+  // team's candidate cannot reach this page. A non-manager gets the same 404 as
+  // a missing candidate — the guard must not confirm the record even exists.
+  const scope = await managedTitles(recruiter)
+  if (scope !== 'all' && !scope.includes(record.position)) notFound()
 
   const candidate = toView(record)
 
