@@ -191,6 +191,22 @@ The logo assets in `public/brand/` are the supplied NuAIg marks and are never
 recoloured, stretched or filtered. `logo-white.svg` is shipped for a future
 dark or brand-tinted surface; nothing in v1 uses it.
 
+`public/og.png` is the link-preview card that WhatsApp, Teams, Slack and
+LinkedIn render when someone shares `careers.nuaig.ai`. It is a pre-rendered
+1200×630 PNG rather than a generated-on-request image or the brand SVG, for two
+reasons: those crawlers ignore SVG previews entirely, and several of them give
+up on a slow response, so a static file served straight from the CDN is the only
+shape that reliably previews. `logo.svg` is composited into it at its native
+aspect ratio and untouched colours. Regenerate it if the wording or the mark
+changes — keep the dimensions, and keep it well under a few hundred KB.
+
+Metadata lives in `src/lib/site.ts` and is declared on the root layout, so every
+route inherits a preview. Note that Next merges metadata only one level deep: a
+page that declares its own `openGraph` replaces the parent's wholesale, image
+included, which is why `/apply` restates all of it. `/` 307s to `/apply`, and
+preview crawlers follow redirects, so the shared apex link resolves to the same
+card.
+
 Accessibility is the spec's "solid baseline, not a formal audit": semantic HTML,
 every field labelled, full keyboard navigation, visible focus rings, ARIA on
 icon-only controls, live regions on async results, and wide tables that scroll

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { ApplyWizard } from '@/components/apply/ApplyWizard'
 import { uploadEnv } from '@/lib/env'
+import { ogImage, siteName, siteUrl } from '@/lib/site'
 import { activePositions } from '@/lib/graph/positions'
 
 /**
@@ -12,9 +13,34 @@ import { activePositions } from '@/lib/graph/positions'
  * secret — they are the same numbers the server enforces.
  */
 
+const applyDescription =
+  'Submit your application to join NuAIg — one short form, no account needed.'
+
+/**
+ * `openGraph` and `twitter` are restated in full rather than inherited: Next
+ * merges metadata one level deep, so declaring either key here would otherwise
+ * drop the root layout's preview image entirely.
+ */
 export const metadata: Metadata = {
   title: 'Apply',
-  description: 'Submit your application to join NuAIg.',
+  description: applyDescription,
+  // `/` 307s here, so this is the canonical address of the form.
+  alternates: { canonical: '/apply' },
+  openGraph: {
+    type: 'website',
+    siteName,
+    title: 'Apply · Careers at NuAIg',
+    description: applyDescription,
+    url: `${siteUrl}/apply`,
+    locale: 'en_US',
+    images: [ogImage],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Apply · Careers at NuAIg',
+    description: applyDescription,
+    images: [ogImage.url],
+  },
 }
 
 /**
