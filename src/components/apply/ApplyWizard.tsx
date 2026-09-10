@@ -292,8 +292,8 @@ export function ApplyWizard({
       <header className="mb-8 max-w-2xl">
         <h1 className="text-3xl font-semibold text-ink">Apply to NuAIg</h1>
         <p className="mt-2 text-secondary">
-          One page, six short sections. Your uploads start as soon as you choose a file, so
-          nothing is waiting on you at the end.
+          Every section is on this page. Documents begin uploading as soon as you select
+          them, so there is no wait when you submit.
         </p>
       </header>
 

@@ -1,5 +1,5 @@
 import type { CandidateQuery } from './graph/candidates'
-import { isStatus } from './constants'
+import { STATUS_STAGES, isStatusFilter } from './constants'
 
 /**
  * Translation between URL search params and a typed Graph query.
@@ -8,6 +8,10 @@ import { isStatus } from './constants'
  * falls back to a safe default rather than reaching the OData filter builder.
  * Free-text search is the one pass-through value, and it is escaped downstream
  * in `graph/candidates.ts`.
+ *
+ * `status` is repeatable — `?status=New&status=Interview` — so the filter bar
+ * can select several at once. A comma-separated single value is accepted too,
+ * because that is what a hand-edited or shared URL tends to look like.
  */
 
 export function parseQuery(params: Record<string, string | string[] | undefined>): CandidateQuery {
@@ -16,9 +20,18 @@ export function parseQuery(params: Record<string, string | string[] | undefined>
     return Array.isArray(value) ? value[0] : value
   }
 
+  const all = (key: string): string[] => {
+    const value = params[key]
+    const raw = Array.isArray(value) ? value : value ? [value] : []
+    return raw.flatMap((entry) => entry.split(',')).map((entry) => entry.trim())
+  }
+
   const position = one('position')
-  const status = one('status')
   const sort = one('sort')
+
+  // Deduped and capped: the list is a whitelist, but the clauses are OR-ed into
+  // one OData filter and there is no reason to let a crafted URL repeat them.
+  const statuses = [...new Set(all('status').filter(isStatusFilter))].slice(0, STATUS_STAGES.length)
 
   return {
     search: one('search') || undefined,
@@ -27,7 +40,7 @@ export function parseQuery(params: Record<string, string | string[] | undefined>
     // filter (`odata()` in graph/candidates.ts); an unknown one simply matches
     // nothing, which is the correct outcome for a stale bookmark.
     position: position ? position.slice(0, 150) : 'all',
-    status: status && isStatus(status) ? status : 'all',
+    statuses,
     from: isDate(one('from')) ? one('from') : undefined,
     to: isDate(one('to')) ? one('to') : undefined,
     sort: sort === 'oldest' || sort === 'experience' ? sort : 'newest',
@@ -39,7 +52,7 @@ export function serialiseQuery(query: CandidateQuery): Record<string, string> {
   const out: Record<string, string> = {}
   if (query.search) out.search = query.search
   if (query.position && query.position !== 'all') out.position = query.position
-  if (query.status && query.status !== 'all') out.status = query.status
+  if (query.statuses?.length) out.status = query.statuses.join(',')
   if (query.from) out.from = query.from
   if (query.to) out.to = query.to
   if (query.sort) out.sort = query.sort

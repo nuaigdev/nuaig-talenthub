@@ -202,6 +202,20 @@ export function isStatus(value: string): boolean {
   return STATUSES.includes(value)
 }
 
+/**
+ * What the recruiter's status *filter* accepts, which is a wider vocabulary
+ * than what the app ever writes: a bare stage ('Interview') selects every round
+ * under it, and an exact composite ('Interview L2') selects just that round.
+ *
+ * `isStatus` cannot stand in here — STATUSES holds only the values that get
+ * stored, and for a levelled stage those are 'Interview L1'…'L3', never the
+ * bare stage. Validating a filter with it silently discarded every stage-level
+ * filter on Interview, Selected and Rejected.
+ */
+export function isStatusFilter(value: string): boolean {
+  return (STATUS_STAGES as readonly string[]).includes(value) || STATUSES.includes(value)
+}
+
 /** Colour for a stored status, whatever round it names. */
 export function statusColor(value: string): string {
   return STATUS_COLORS[parseStatus(value).stage]

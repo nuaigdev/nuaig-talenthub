@@ -415,7 +415,11 @@ export async function getCandidateByCandidateId(
 export type CandidateQuery = {
   search?: string
   position?: Position | 'all'
-  status?: CandidateStatus | 'all'
+  /**
+   * Zero or more statuses, OR-ed together. Empty means no status filter —
+   * there is no 'all' sentinel, because an empty selection says the same thing.
+   */
+  statuses?: CandidateStatus[]
   from?: string
   to?: string
   sort?: 'newest' | 'oldest' | 'experience'
@@ -435,16 +439,19 @@ function buildFilter(query: CandidateQuery): string | null {
   if (query.position && query.position !== 'all') {
     clauses.push(`fields/Position eq '${odata(query.position)}'`)
   }
-  if (query.status && query.status !== 'all') {
+  if (query.statuses?.length) {
     // A status is stored as "stage" or "stage L2". Filtering by a levelled
     // stage matches every round under it, which is what a recruiter means by
     // "show me everyone at interview". No stage name prefixes another, so a
     // prefix match cannot bleed across stages.
-    clauses.push(
-      stageTakesLevel(query.status)
-        ? `startswith(fields/Status,'${odata(query.status)}')`
-        : `fields/Status eq '${odata(query.status)}'`,
+    const matches = query.statuses.map((status) =>
+      stageTakesLevel(status)
+        ? `startswith(fields/Status,'${odata(status)}')`
+        : `fields/Status eq '${odata(status)}'`,
     )
+    // Parenthesised: the clauses below are AND-ed, so an un-grouped `or` would
+    // bind wrongly and quietly widen every other filter.
+    clauses.push(matches.length === 1 ? matches[0] : `(${matches.join(' or ')})`)
   }
   if (query.from) {
     clauses.push(`fields/ApplicationDate ge '${new Date(query.from).toISOString()}'`)

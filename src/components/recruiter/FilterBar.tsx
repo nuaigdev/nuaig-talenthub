@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { Button, Input, Select, Spinner } from '@/components/ui'
-import { STATUS_STAGES } from '@/lib/constants'
+import { StatusFilter } from './StatusFilter'
 
 /**
  * Filter bar, sitting directly under the header (spec.md §10.1) — explicitly
@@ -33,11 +33,14 @@ export function FilterBar({
     setSearch(params.get('search') ?? '')
   }, [params])
 
-  function apply(changes: Record<string, string>) {
+  function apply(changes: Record<string, string | string[]>) {
     const next = new URLSearchParams(params.toString())
     for (const [key, value] of Object.entries(changes)) {
-      if (value) next.set(key, value)
-      else next.delete(key)
+      next.delete(key)
+      // An array becomes repeated params (`?status=New&status=Offer`), which is
+      // what `parseQuery` reads back.
+      if (Array.isArray(value)) for (const entry of value) next.append(key, entry)
+      else if (value) next.set(key, value)
     }
     // Any filter change invalidates the current position in the result set.
     next.delete('cursor')
@@ -45,12 +48,18 @@ export function FilterBar({
   }
 
   const position = params.get('position') ?? 'all'
-  const status = params.get('status') ?? 'all'
+  // Repeated params, with a comma-separated single value tolerated so a shared
+  // or hand-edited URL still lights the right boxes. Mirrors `parseQuery`.
+  const statuses = params
+    .getAll('status')
+    .flatMap((entry) => entry.split(','))
+    .map((entry) => entry.trim())
+    .filter(Boolean)
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
   const sort = params.get('sort') ?? 'newest'
   const hasFilters = Boolean(
-    params.get('search') || (position !== 'all') || (status !== 'all') || from || to || sort !== 'newest',
+    params.get('search') || position !== 'all' || statuses.length || from || to || sort !== 'newest',
   )
 
   return (
@@ -101,27 +110,7 @@ export function FilterBar({
             </Select>
           </div>
 
-          <div>
-            <label htmlFor="filter-status" className="mb-1 block text-xs font-medium text-secondary">
-              Status
-            </label>
-            <Select
-              id="filter-status"
-              value={status}
-              onChange={(event) => apply({ status: event.target.value })}
-              className="w-40"
-            >
-              <option value="all">All statuses</option>
-              {/* Stages, not every round: filtering by Interview should show
-                  L1, L2 and L3 together. The Graph filter turns a levelled
-                  stage into a prefix match. */}
-              {STATUS_STAGES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <StatusFilter selected={statuses} onChange={(next) => apply({ status: next })} />
 
           <div>
             <label htmlFor="filter-from" className="mb-1 block text-xs font-medium text-secondary">
