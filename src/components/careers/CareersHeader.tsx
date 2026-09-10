@@ -17,18 +17,9 @@ export function CareersHeader() {
           {/* The supplied brand mark, used as-is (CLAUDE.md §UI). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/logo.svg" alt="NuAIg" width={80} height={33} style={{ height: 33, width: 'auto' }} />
-          <span className="ml-3 hidden border-l border-border pl-3 text-sm font-medium text-secondary sm:inline-block">
-            Careers
-          </span>
         </Link>
 
         <div className="flex items-center gap-1">
-          <a
-            href="#culture"
-            className="hidden rounded-md px-3 py-2 text-sm text-secondary transition-colors hover:text-brand sm:inline-block"
-          >
-            Culture
-          </a>
           <Link
             href="/apply"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-hover"
