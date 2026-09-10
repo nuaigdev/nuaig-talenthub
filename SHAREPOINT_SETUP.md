@@ -118,12 +118,40 @@ Graph refuses to `$filter` or `$orderby` a SharePoint list on a non-indexed
 column once the list exceeds the list view threshold (5,000 items). The app
 sends `Prefer: HonorNonIndexedQueriesWarningMayFailRandomly` so small lists work
 without indexes, but that header is a stopgap — as the name says, it fails
-randomly at scale. Index at least `CandidateID`, `Email`, `Position`, `Status`,
-`StatusRank` and `ApplicationDate` before going live — the last two are what the
-sort orders by, and an unindexed sort is the first thing to fail as the list
-grows.
+randomly at scale.
 
-To add an index: **List settings → Indexed columns → Create a new index**.
+Seven columns on `Candidates` are queried, and all seven should be indexed
+before going live. No other list needs an index: `Positions`, `Recruiters` and
+`Counters` are read whole and filtered in memory, and none of them will ever
+approach the threshold.
+
+| Column | Why |
+| --- | --- |
+| `CandidateID` | `eq` on every detail-page load; `startswith` from the search box |
+| `Email` | `eq` for the duplicate check; `startswith` from the search box |
+| `Position` | `eq` for the duplicate check and the position filter |
+| `Status` | `eq` and `startswith` for the status filter |
+| `StatusRank` | `orderby` for the status sort |
+| `ApplicationDate` | `ge`/`le` for the date filters and the duplicate window; `orderby` for newest/oldest and as the status-sort tiebreak |
+| `FullName` | `startswith` from the search box |
+
+`YearsExperience` no longer needs one — it was only there for the "Most
+experience" sort, which has been removed.
+
+One honest caveat: an index helps `eq`, `ge`/`le` and `orderby` most.
+`startswith` benefits least, so the search box is the first feature likely to
+strain past the threshold, whatever is indexed.
+
+To add an index: **List settings → Indexed columns → Create a new index**. The
+index is built as you create it — there is nothing to run afterwards.
+
+> **"Reindex List" is a different thing, and is not needed.** The option under
+> *List settings → Advanced settings* queues a full recrawl by **SharePoint
+> Search**, so list content shows up in SharePoint/Microsoft Search results. It
+> has no bearing on column indexes. This app never touches the search index —
+> every read is an OData `$filter`/`$orderby` against the list-items endpoint,
+> which is served from the content database using exactly the column indexes
+> above. Clicking Reindex List costs a full crawl and changes nothing here.
 
 ### The two JSON columns
 
