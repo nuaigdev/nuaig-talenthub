@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import { Button, Input, Select, Spinner } from '@/components/ui'
 import { StatusFilter } from './StatusFilter'
 
@@ -12,6 +12,9 @@ import { StatusFilter } from './StatusFilter'
  * Every control writes to the URL and the server re-queries. Filters are part
  * of the Graph request, never applied to an already-fetched page, so paging and
  * filtering compose correctly (§3 decision 7).
+ *
+ * There is no search box here — the header's is the only one, and it writes the
+ * same `search` param into the same URL, so the two would have been duplicates.
  */
 export function FilterBar({
   basePath,
@@ -24,14 +27,6 @@ export function FilterBar({
   const router = useRouter()
   const params = useSearchParams()
   const [pending, startTransition] = useTransition()
-
-  const [search, setSearch] = useState(params.get('search') ?? '')
-
-  // Keep the box in step when the URL changes from elsewhere (the header's
-  // quick-jump search, or the browser Back button).
-  useEffect(() => {
-    setSearch(params.get('search') ?? '')
-  }, [params])
 
   function apply(changes: Record<string, string | string[]>) {
     const next = new URLSearchParams(params.toString())
@@ -66,31 +61,6 @@ export function FilterBar({
     <div className="border-b border-border bg-surface">
       <div className="w-full px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
-          <form
-            className="flex items-end gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              apply({ search })
-            }}
-          >
-            <div>
-              <label htmlFor="filter-search" className="mb-1 block text-xs font-medium text-secondary">
-                Search
-              </label>
-              <Input
-                id="filter-search"
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Name, ID or email"
-                className="w-56"
-              />
-            </div>
-            <Button type="submit" variant="secondary" size="md">
-              Search
-            </Button>
-          </form>
-
           <div>
             <label htmlFor="filter-position" className="mb-1 block text-xs font-medium text-secondary">
               Position

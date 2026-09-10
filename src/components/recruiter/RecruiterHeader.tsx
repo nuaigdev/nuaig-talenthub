@@ -1,15 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { Logo } from '@/components/brand/Logo'
 
 /**
- * Recruiter chrome (spec.md §6.2): logo, horizontal nav, global quick-jump
- * search, user menu. Sticky, same 64px height as the public header so the two
- * experiences feel like one product. No sidebar.
+ * Recruiter chrome (spec.md §6.2): logo, horizontal nav, global search, user
+ * menu. Sticky, same 64px height as the public header so the two experiences
+ * feel like one product. No sidebar.
+ *
+ * This is the only search box in the recruiter app — the filter bar used to
+ * carry a second one writing the same `search` param. Being the only one means
+ * it has to behave like a filter rather than a quick-jump: it shows the active
+ * term instead of clearing itself, submits empty to clear, and stays on the
+ * current list so a position or status filter survives the search.
  */
 
 const NAV = [
@@ -31,8 +37,18 @@ export function RecruiterHeader({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const params = useSearchParams()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(params.get('search') ?? '')
+
+  // The two views that list candidates, and so can hold a search. The detail
+  // page sits under /recruiter/candidates/ too, hence the exact match.
+  const onList = pathname === '/recruiter' || pathname === '/recruiter/candidates'
+
+  // Keep the box showing whatever the URL says — Back, Clear, or a summary tile.
+  useEffect(() => {
+    setQuery(params.get('search') ?? '')
+  }, [params])
 
   const initials = displayName
     .split(' ')
@@ -44,10 +60,21 @@ export function RecruiterHeader({
   function jump(event: React.FormEvent) {
     event.preventDefault()
     const term = query.trim()
-    if (!term) return
-    // The dashboard owns search; this box is a shortcut into it.
-    router.push(`/recruiter?search=${encodeURIComponent(term)}`)
-    setQuery('')
+
+    // Searching from a list keeps that list and its other filters; from
+    // anywhere else (a candidate, Positions) the dashboard owns the result.
+    const base = onList ? pathname : '/recruiter'
+    const next = new URLSearchParams(onList ? params.toString() : '')
+
+    // An empty submit clears the search rather than doing nothing — with no
+    // filter-bar box left, this is how a recruiter gets back to the full list
+    // without also dropping their position and status filters.
+    if (term) next.set('search', term)
+    else next.delete('search')
+    next.delete('cursor')
+
+    const rest = next.toString()
+    router.push(rest ? `${base}?${rest}` : base)
   }
 
   return (
@@ -81,17 +108,17 @@ export function RecruiterHeader({
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
-          <form onSubmit={jump} role="search" className="hidden sm:block">
+          <form onSubmit={jump} role="search">
             <label htmlFor="global-search" className="sr-only">
-              Search candidates by name or ID
+              Search candidates by name, ID or email
             </label>
             <input
               id="global-search"
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name or ID…"
-              className="h-9 w-52 rounded-md border border-border bg-white px-3 text-sm text-ink placeholder:text-muted focus:border-brand focus:outline-none"
+              placeholder="Search name, ID or email…"
+              className="h-9 w-36 rounded-md border border-border bg-white px-3 text-sm text-ink transition-colors placeholder:text-muted focus:border-brand focus:outline-none sm:w-56"
             />
           </form>
 
