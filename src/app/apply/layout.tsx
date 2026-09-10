@@ -12,8 +12,9 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
-        {/* Full-bleed, matching the recruiter header — logo hard left. */}
-        <div className="flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
+        {/* Same container as the careers landing header (max-w-content, px-5/px-8,
+            h-[68px]) so the logo sits in the identical spot across both pages. */}
+        <div className="mx-auto flex h-[68px] w-full max-w-content items-center justify-between gap-4 px-5 sm:px-8">
           {/* `/` is the careers landing page now, so the mark goes there. */}
           <Logo href="/" />
           <div className="flex items-center gap-5">
