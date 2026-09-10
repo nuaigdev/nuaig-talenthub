@@ -484,10 +484,13 @@ function buildOrderBy(sort: CandidateQuery['sort']): string {
     // is stored: OData cannot express "sort by this list's sequence", and
     // ordering the Status text would interleave the stages meaninglessly and
     // scatter Interview L1-L3. See `statusRank` in constants.ts.
+    // ApplicationDate breaks the ties, so a stage full of candidates reads
+    // newest-first rather than in whatever order SharePoint returns. Verified
+    // against the tenant — Graph accepts the two-column order on this list.
     case 'status':
-      return 'fields/StatusRank asc'
+      return 'fields/StatusRank asc,fields/ApplicationDate desc'
     case 'status-desc':
-      return 'fields/StatusRank desc'
+      return 'fields/StatusRank desc,fields/ApplicationDate desc'
     default:
       return 'fields/ApplicationDate desc'
   }

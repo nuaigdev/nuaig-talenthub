@@ -220,6 +220,9 @@ values; nothing reads the column back, it exists purely to be sorted on.
 > It reads the same `.env.local` the app does, is safe to re-run, and reports
 > any row it could not patch. Until it has run, the two status sort options are
 > the only thing affected — every other filter and sort is unaffected.
+>
+> This has already been run against the live list (10 Sep 2026, 14 rows). It is
+> kept for a rebuilt site or a restored backup, not because it is still pending.
 
 > **Upgrading an existing site.** If `Status` is already a Choice column with the
 > old 9 values, either change its type to Single line of text — SharePoint keeps
