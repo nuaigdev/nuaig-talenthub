@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Logo } from '@/components/brand/Logo'
 
 /**
@@ -12,16 +13,26 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
         {/* Full-bleed, matching the recruiter header — logo hard left. */}
-        <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6">
-          <Logo href="/apply" />
-          {contactAddress && (
-            <a
-              href={`mailto:${contactAddress}`}
+        <div className="flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
+          {/* `/` is the careers landing page now, so the mark goes there. */}
+          <Logo href="/" />
+          <div className="flex items-center gap-5">
+            <Link
+              href="/"
               className="rounded-md text-sm text-secondary transition-colors hover:text-brand"
             >
-              Having trouble? Contact us
-            </a>
-          )}
+              <span aria-hidden className="mr-1.5">&larr;</span>
+              Careers
+            </Link>
+            {contactAddress && (
+              <a
+                href={`mailto:${contactAddress}`}
+                className="hidden rounded-md text-sm text-secondary transition-colors hover:text-brand sm:inline"
+              >
+                Having trouble? Contact us
+              </a>
+            )}
+          </div>
         </div>
       </header>
 

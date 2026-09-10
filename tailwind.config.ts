@@ -14,8 +14,16 @@ const config: Config = {
           DEFAULT: 'var(--color-brand)',
           hover: 'var(--color-brand-hover)',
           subtle: 'var(--color-brand-subtle)',
+          deep: 'var(--color-brand-deep)',
+          light: 'var(--color-brand-light)',
         },
         ink: 'var(--color-ink)',
+        // Dark bands on the careers landing page only (globals.css).
+        navy: {
+          DEFAULT: 'var(--color-navy)',
+          deep: 'var(--color-navy-deep)',
+          soft: 'var(--color-navy-soft)',
+        },
         bg: 'var(--color-bg)',
         surface: {
           DEFAULT: 'var(--color-surface)',
@@ -34,6 +42,8 @@ const config: Config = {
       borderRadius: {
         lg: '10px',
         md: '8px',
+        xl: '14px',
+        '2xl': '20px',
       },
       transitionDuration: {
         DEFAULT: '160ms',
@@ -41,6 +51,11 @@ const config: Config = {
       boxShadow: {
         sm: '0 1px 2px 0 rgb(17 17 17 / 0.04), 0 1px 3px 0 rgb(17 17 17 / 0.06)',
         card: '0 1px 2px 0 rgb(17 17 17 / 0.04), 0 4px 12px -2px rgb(17 17 17 / 0.06)',
+        // Landing page only — a taller lift for the hero's floating panels.
+        lift: '0 2px 4px -1px rgb(6 20 38 / 0.06), 0 18px 40px -12px rgb(6 20 38 / 0.22)',
+      },
+      maxWidth: {
+        content: '1200px',
       },
     },
   },

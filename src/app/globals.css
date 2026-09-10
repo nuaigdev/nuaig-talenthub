@@ -9,6 +9,18 @@
   --color-brand-subtle: #e6f5fc;
   --color-ink: #111111;
 
+  /*
+   * Careers-landing extensions. The public site pairs the brand blue with a
+   * deep navy across its own collateral (event stands, decks), so the landing
+   * page's dark bands use these rather than a tint of ink. This is still a
+   * single light-mode palette — there is no dark-mode variant of anything.
+   */
+  --color-brand-deep: #0b6fb0;
+  --color-brand-light: #4fd1f5;
+  --color-navy: #0a1e3a;
+  --color-navy-deep: #061426;
+  --color-navy-soft: #12305a;
+
   --color-bg: #ffffff;
   --color-surface: #f7f9fb;
   --color-surface-raised: #ffffff;
@@ -53,5 +65,80 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Careers landing page
+ *
+ * Only the effects Tailwind cannot express as utilities live here: the two
+ * keyframed animations, and the two background paint recipes used by the dark
+ * hero and CTA bands. Everything else on that page is tokens + utilities.
+ * ------------------------------------------------------------------------ */
+@layer utilities {
+  /* Faint blueprint grid, masked to fade out before the band's edges. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.055) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 62% at 50% 38%, #000 35%, transparent 78%);
+    mask-image: radial-gradient(ellipse 80% 62% at 50% 38%, #000 35%, transparent 78%);
+  }
+
+  /* Two soft brand lights over the navy, so the band is never a flat block. */
+  .bg-aurora {
+    background-image:
+      radial-gradient(58rem 34rem at 12% -12%, rgb(6 155 223 / 0.34), transparent 62%),
+      radial-gradient(46rem 30rem at 92% 8%, rgb(79 209 245 / 0.2), transparent 60%);
+  }
+
+  .text-gradient-brand {
+    background-image: linear-gradient(
+      100deg,
+      var(--color-brand-light) 0%,
+      var(--color-brand) 46%,
+      #a9e6ff 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Duplicated track scrolls exactly half its width, so the loop is seamless. */
+  .animate-marquee {
+    animation: marquee 46s linear infinite;
+  }
+
+  .animate-rise {
+    animation: rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The landing page decoration is presentational; motion sensitivity wins. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-rise {
+    animation: none !important;
   }
 }

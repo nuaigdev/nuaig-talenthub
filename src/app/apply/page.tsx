@@ -24,7 +24,7 @@ const applyDescription =
 export const metadata: Metadata = {
   title: 'Apply',
   description: applyDescription,
-  // `/` 307s here, so this is the canonical address of the form.
+  // `/` is the careers landing page; this is the form's own address.
   alternates: { canonical: '/apply' },
   openGraph: {
     type: 'website',
