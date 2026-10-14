@@ -132,10 +132,13 @@ const ACTIVE_LINE_PX = 160
 export function ApplyWizard({
   limits,
   positions,
+  videoOptional = false,
 }: {
   limits: UploadLimits
   /** Live options from the recruiter-managed Positions list. */
   positions: string[]
+  /** From the HR-shared `?video=optional` link (see CLAUDE.md). */
+  videoOptional?: boolean
 }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [locationChoice, setLocationChoice] = useState('')
@@ -173,7 +176,7 @@ export function ApplyWizard({
     position: sectionClean('position', liveErrors),
     education: sectionClean('education', liveErrors),
     resume: resume.phase === 'done',
-    video: video.phase === 'done',
+    video: videoOptional || video.phase === 'done',
     consent,
   }
 
@@ -244,8 +247,13 @@ export function ApplyWizard({
       return
     }
 
-    if (resume.phase !== 'done' || video.phase !== 'done' || !draftToken) {
-      setSubmitError('Please complete both uploads before submitting.')
+    const videoDone = videoOptional || video.phase === 'done'
+    if (resume.phase !== 'done' || !videoDone || !draftToken) {
+      setSubmitError(
+        videoOptional
+          ? 'Please complete the resume upload before submitting.'
+          : 'Please complete both uploads before submitting.',
+      )
       return
     }
 
@@ -259,7 +267,7 @@ export function ApplyWizard({
         body: JSON.stringify({
           ...details,
           resume: resume.item,
-          video: video.item,
+          video: video.phase === 'done' ? video.item : undefined,
           consent: true,
           draftToken,
         }),
@@ -682,6 +690,7 @@ export function ApplyWizard({
               <FileUploadField
                 kind="video"
                 label="Introduction video"
+                required={!videoOptional}
                 accept=".mp4,.mov,video/mp4,video/quicktime"
                 acceptLabel="an MP4 or MOV"
                 maxBytes={limits.maxVideoBytes}

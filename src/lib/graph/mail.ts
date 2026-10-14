@@ -77,7 +77,7 @@ export type ConfirmationSummary = {
   agencyCode: string
   applicationDate: string
   resumeBytes: number
-  videoBytes: number
+  videoBytes?: number
 }
 
 function formatBytes(bytes: number): string {

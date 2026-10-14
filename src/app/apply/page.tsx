@@ -50,14 +50,25 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic'
 
-export default async function ApplyPage() {
+export default async function ApplyPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   // Positions come from the recruiter-managed list, with a built-in fallback if
   // that list is unreachable — the public form must render regardless.
   const positions = await activePositions()
 
+  // `?nv=1` is a link HR shares directly with specific candidates (never the
+  // public /apply URL) to waive the video requirement for them. The param name
+  // is deliberately non-obvious rather than a guessable `video=optional`.
+  const params = await searchParams
+  const videoOptional = params.nv === '1'
+
   return (
     <ApplyWizard
       positions={positions}
+      videoOptional={videoOptional}
       limits={{
         maxResumeBytes: uploadEnv.maxResumeBytes,
         maxVideoBytes: uploadEnv.maxVideoBytes,

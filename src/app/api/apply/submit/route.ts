@@ -96,13 +96,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Confirm both uploads belong to this submission, and that their bytes
-    //    match what was declared. A file that lies about its type never reaches
-    //    a candidate record.
-    for (const [label, file] of [
+    // 3. Confirm each uploaded file belongs to this submission, and that its
+    //    bytes match what was declared. A file that lies about its type never
+    //    reaches a candidate record. Video is absent when submitted through the
+    //    `?video=optional` link (see CLAUDE.md).
+    const uploads = [
       ['resume', input.resume],
-      ['video', input.video],
-    ] as const) {
+      ...(input.video ? ([['video', input.video]] as const) : []),
+    ] as const
+    for (const [label, file] of uploads) {
       await assertItemInDraft(file.itemId, draftId)
       placed.push({ itemId: file.itemId, label })
 
@@ -142,11 +144,9 @@ export async function POST(request: Request) {
       folder.id,
       storageFileName('resume', input.resume.contentType),
     )
-    const videoItem = await moveItem(
-      input.video.itemId,
-      folder.id,
-      storageFileName('video', input.video.contentType),
-    )
+    const videoItem = input.video
+      ? await moveItem(input.video.itemId, folder.id, storageFileName('video', input.video.contentType))
+      : undefined
 
     // 6. Create the list item — the point at which the application becomes real.
     const candidate = await createCandidate({
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
       expectedCTC: input.expectedCTC,
       noticePeriod: input.noticePeriod,
       resumeUrl: resumeItem.webUrl,
-      videoUrl: videoItem.webUrl,
+      videoUrl: videoItem?.webUrl ?? '',
       applicationDate: now.toISOString(),
     })
     listItemId = candidate.itemId
@@ -221,7 +221,7 @@ export async function POST(request: Request) {
       // File sizes, not names: storage names are normalised, so echoing them
       // back would show the candidate a filename they never chose.
       resumeBytes: input.resume.size,
-      videoBytes: input.video.size,
+      videoBytes: input.video?.size,
     })
 
     // 8. The candidate gets their ID and nothing else — no SharePoint URL, no

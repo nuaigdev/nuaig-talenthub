@@ -29,6 +29,7 @@ export type UploadState =
 export function FileUploadField({
   kind,
   label,
+  required = true,
   accept,
   acceptLabel,
   maxBytes,
@@ -40,6 +41,8 @@ export function FileUploadField({
 }: {
   kind: 'resume' | 'video'
   label: string
+  /** False for the video field on the HR-shared `?video=optional` link. */
+  required?: boolean
   accept: string
   acceptLabel: string
   maxBytes: number
@@ -127,10 +130,16 @@ export function FileUploadField({
     <div className="space-y-3">
       <label htmlFor={inputId} className="block text-sm font-medium text-ink">
         {label}
-        <span className="ml-0.5 text-[#DC2626]" aria-hidden="true">
-          *
-        </span>
-        <span className="sr-only"> (required)</span>
+        {required ? (
+          <>
+            <span className="ml-0.5 text-[#DC2626]" aria-hidden="true">
+              *
+            </span>
+            <span className="sr-only"> (required)</span>
+          </>
+        ) : (
+          <span className="ml-1 font-normal text-secondary">(optional)</span>
+        )}
       </label>
 
       <input

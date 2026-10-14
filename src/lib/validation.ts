@@ -178,7 +178,9 @@ export const uploadedFileSchema = z.object({
 export const submissionSchema = withCrossFieldRules(
   detailsFields.extend({
     resume: uploadedFileSchema,
-    video: uploadedFileSchema,
+    // Required on the public form, but the HR-shared `?video=optional` link
+    // (spec deviation, see CLAUDE.md) lets a candidate submit without one.
+    video: uploadedFileSchema.optional(),
     consent: z.literal(true, {
       errorMap: () => ({ message: 'Consent is required to submit your application' }),
     }),
@@ -189,7 +191,7 @@ export const submissionSchema = withCrossFieldRules(
 
 type SubmissionExtras = {
   resume: z.infer<typeof uploadedFileSchema>
-  video: z.infer<typeof uploadedFileSchema>
+  video: z.infer<typeof uploadedFileSchema> | undefined
   consent: true
   draftToken: string
 }
